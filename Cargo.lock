@@ -28,8 +28,7 @@ version = "0.0.1-dev"
 dependencies = [
  "anyhow",
  "midir",
- "pitch_calc",
- "rodio",
+ "muse",
 ]
 
 [[package]]
@@ -344,6 +343,12 @@ dependencies = [
 [[package]]
 name = "muse"
 version = "0.0.1-dev"
+dependencies = [
+ "anyhow",
+ "pitch_calc",
+ "rodio",
+ "thiserror",
+]
 
 [[package]]
 name = "nix"

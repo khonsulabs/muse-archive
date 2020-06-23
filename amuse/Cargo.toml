@@ -13,6 +13,5 @@ readme = "README.md"
 
 [dependencies]
 midir="0.6"
-rodio="0.11"
 anyhow="1"
-pitch_calc="0.12"
+muse = { path = "../muse" }

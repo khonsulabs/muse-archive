@@ -1,6 +1,6 @@
 extern crate midir;
 
-mod instrument;
+use muse::instrument;
 use std::error::Error;
 use std::io::{stdin, stdout, Write};
 
@@ -15,7 +15,7 @@ fn main() {
 
 fn run() -> Result<(), Box<dyn Error>> {
     let mut input = String::new();
-    let mut instrument = instrument::VirtualInstrument::new();
+    let mut instrument = instrument::VirtualInstrument::default();
 
     let mut midi_in = MidiInput::new("midir reading input")?;
     midi_in.ignore(Ignore::None);
