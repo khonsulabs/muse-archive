@@ -5,9 +5,11 @@ use std::{
     time::{Duration, Instant},
 };
 
+mod sawtooth;
 mod sine;
 mod square;
 mod triangle;
+pub use sawtooth::Sawtooth;
 pub use sine::Sine;
 pub use square::Square;
 pub use triangle::Triangle;

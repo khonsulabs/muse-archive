@@ -1,4 +1,4 @@
-use crate::oscillators::{Oscillator, Square};
+use crate::oscillators::*;
 use rodio::source::Source;
 
 pub struct VirtualInstrument {
@@ -73,7 +73,7 @@ impl VirtualInstrument {
         &mut self,
         midi_pitch: u8,
         velocity: u8,
-    ) -> Result<rodio::source::Amplify<Oscillator<Square>>, anyhow::Error> {
+    ) -> Result<rodio::source::Amplify<Oscillator<Sawtooth>>, anyhow::Error> {
         // A4 = 440hz, A4 = 69
         let frequency = pitch_calc::calc::hz_from_step(midi_pitch as f32);
         println!(
