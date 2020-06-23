@@ -2,6 +2,7 @@ use lazy_static::lazy_static;
 use std::time::Instant;
 
 pub mod sine;
+pub mod triangle;
 
 lazy_static! {
     static ref STARTUP_INSTANT: Instant = Instant::now();
