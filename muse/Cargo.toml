@@ -1,0 +1,14 @@
+[package]
+name = "muse"
+version = "0.0.1-dev"
+authors = ["Jonathan Johnson <jon@khonsulabs.com>"]
+edition = "2018"
+license = "MIT"
+description = "Virtual instrument synthesizer (coming soon)"
+homepage = "https://github.com/khonsulabs/muse"
+repository = "https://github.com/khonsulabs/muse"
+readme = "README.md"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
