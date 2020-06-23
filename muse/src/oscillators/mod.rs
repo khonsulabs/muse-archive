@@ -1,25 +1,34 @@
 use lazy_static::lazy_static;
-use std::time::Instant;
+use rodio::Source;
+use std::{
+    f32::consts::PI,
+    time::{Duration, Instant},
+};
 
-pub mod sine;
-pub mod square;
-pub mod triangle;
+mod sine;
+mod square;
+mod triangle;
+pub use sine::Sine;
+pub use square::Square;
+pub use triangle::Triangle;
 
 lazy_static! {
     static ref STARTUP_INSTANT: Instant = Instant::now();
 }
 
 #[derive(Debug, Clone)]
-pub struct Oscillator {
+pub struct Oscillator<T> {
     frequency: f32,
     current_sample: usize,
+    _of: std::marker::PhantomData<T>,
 }
 
-impl Oscillator {
+impl<T> Oscillator<T> {
     pub fn new(frequency: f32) -> Self {
         Self {
             frequency,
             current_sample: Self::initial_sample(),
+            _of: std::marker::PhantomData::default(),
         }
     }
 
@@ -38,16 +47,44 @@ impl Oscillator {
         48000
     }
 }
-impl Iterator for Oscillator {
+
+pub trait OscillatorFunction {
+    fn compute_sample(value: f32) -> f32;
+}
+
+impl<T> Iterator for Oscillator<T>
+where
+    T: OscillatorFunction,
+{
     type Item = f32;
 
-    #[inline]
     fn next(&mut self) -> Option<f32> {
         self.current_sample = self.current_sample.wrapping_add(1);
+        let value = self.frequency * 2.0 * std::f32::consts::PI * self.current_sample as f32
+            / Self::sample_rate() as f32;
+        let value = value % (2.0 * PI);
 
-        Some(
-            self.frequency * 2.0 * std::f32::consts::PI * self.current_sample as f32
-                / Self::sample_rate() as f32,
-        )
+        Some(T::compute_sample(value))
+    }
+}
+
+impl<T> Source for Oscillator<T>
+where
+    T: OscillatorFunction,
+{
+    fn current_frame_len(&self) -> Option<usize> {
+        None
+    }
+
+    fn channels(&self) -> u16 {
+        1
+    }
+
+    fn sample_rate(&self) -> u32 {
+        Oscillator::<T>::sample_rate()
+    }
+
+    fn total_duration(&self) -> Option<Duration> {
+        None
     }
 }
