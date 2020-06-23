@@ -24,7 +24,7 @@ dependencies = [
 
 [[package]]
 name = "amuse"
-version = "0.0.1"
+version = "0.0.1-dev"
 dependencies = [
  "anyhow",
  "midir",
