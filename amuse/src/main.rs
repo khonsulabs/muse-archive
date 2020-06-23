@@ -11,6 +11,11 @@ fn main() {
     }
 }
 
+const STATUS_MESSAGE_NOTE_OFF: u8 = 0x80;
+const STATUS_MESSAGE_NOTE_ON: u8 = 0x90;
+const STATUS_MESSAGE_CONTROL: u8 = 0xb0;
+const CONTROLLER_NUMBER_SUSTAIN: u8 = 0x40;
+
 fn run() -> Result<(), Box<dyn Error>> {
     let mut input = String::new();
     let mut instrument = instrument::VirtualInstrument::default();
@@ -53,10 +58,15 @@ fn run() -> Result<(), Box<dyn Error>> {
         "midir-read-input",
         move |stamp, message, _| {
             if !message.is_empty() {
+                println!("{}: {:x?} (len = {})", stamp, message, message.len());
                 match message[0] & 0xF0 {
-                    0x90 => instrument.play_note(message[1], message[2]).unwrap(),
-                    0x80 => instrument.stop_note(message[1]),
-                    _ => println!("{}: {:?} (len = {})", stamp, message, message.len()),
+                    STATUS_MESSAGE_NOTE_ON => instrument.play_note(message[1], message[2]).unwrap(),
+                    STATUS_MESSAGE_NOTE_OFF => instrument.stop_note(message[1]),
+                    STATUS_MESSAGE_CONTROL => match message[1] {
+                        CONTROLLER_NUMBER_SUSTAIN => instrument.set_sustain(message[2] > 0x40),
+                        _ => {}
+                    },
+                    _ => {}
                 }
             }
         },

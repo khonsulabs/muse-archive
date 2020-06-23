@@ -3,6 +3,7 @@ use rodio::source::Source;
 pub struct VirtualInstrument {
     playing_notes: Vec<PlayingNote>,
     device: rodio::Device,
+    sustain: bool,
 }
 
 pub struct PlayingNote {
@@ -30,6 +31,7 @@ impl VirtualInstrument {
         Self {
             device,
             playing_notes: Vec::new(),
+            sustain: false,
         }
     }
     pub fn play_note(&mut self, pitch: u8, velocity: u8) -> Result<(), anyhow::Error> {
@@ -46,14 +48,24 @@ impl VirtualInstrument {
     }
 
     pub fn stop_note(&mut self, pitch: u8) {
-        self.playing_notes.retain(|note| {
-            if note.pitch == pitch {
-                note.sink.stop();
-                false
-            } else {
-                true
-            }
-        });
+        if !self.sustain {
+            self.playing_notes.retain(|note| {
+                if note.pitch == pitch {
+                    note.sink.stop();
+                    false
+                } else {
+                    true
+                }
+            });
+        }
+    }
+
+    pub fn set_sustain(&mut self, active: bool) {
+        self.sustain = active;
+        if !active {
+            self.playing_notes.iter().for_each(|n| n.sink.stop());
+            self.playing_notes.clear();
+        }
     }
 
     fn generate_note(
