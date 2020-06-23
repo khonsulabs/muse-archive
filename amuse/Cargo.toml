@@ -3,6 +3,7 @@ name = "amuse"
 version = "0.0.1-dev"
 authors = ["Jonathan Johnson <jon@khonsulabs.com>"]
 edition = "2018"
+license = "MIT"
 description = "MIDI and scripting-driven virtual instrument playback"
 homepage = "https://github.com/khonsulabs/muse"
 repository = "https://github.com/khonsulabs/muse"
