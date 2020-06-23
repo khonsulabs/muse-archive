@@ -72,7 +72,7 @@ impl VirtualInstrument {
         &mut self,
         midi_pitch: u8,
         velocity: u8,
-    ) -> Result<rodio::source::Amplify<crate::oscillators::triangle::Triangle>, anyhow::Error> {
+    ) -> Result<rodio::source::Amplify<crate::oscillators::square::Square>, anyhow::Error> {
         // A4 = 440hz, A4 = 69
         let frequency = pitch_calc::calc::hz_from_step(midi_pitch as f32);
         println!(
@@ -80,7 +80,7 @@ impl VirtualInstrument {
             frequency,
             pitch_calc::calc::letter_octave_from_step(midi_pitch as f32)
         );
-        let wave = crate::oscillators::triangle::Triangle::new(frequency);
+        let wave = crate::oscillators::square::Square::new(frequency);
 
         Ok(wave.amplify(velocity as f32 / 127.0 * 0.3))
     }
