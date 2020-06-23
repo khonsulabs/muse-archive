@@ -345,6 +345,7 @@ name = "muse"
 version = "0.0.1-dev"
 dependencies = [
  "anyhow",
+ "lazy_static",
  "pitch_calc",
  "rodio",
  "thiserror",

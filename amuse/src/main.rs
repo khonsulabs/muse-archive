@@ -1,5 +1,3 @@
-extern crate midir;
-
 use muse::instrument;
 use std::error::Error;
 use std::io::{stdin, stdout, Write};

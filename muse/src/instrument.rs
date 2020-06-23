@@ -33,7 +33,7 @@ impl VirtualInstrument {
         }
     }
     pub fn play_note(&mut self, pitch: u8, velocity: u8) -> Result<(), anyhow::Error> {
-        let source = self.cache_note(pitch, velocity)?;
+        let source = self.generate_note(pitch, velocity)?;
         let sink = rodio::Sink::new(&self.device);
         sink.append(source);
         self.playing_notes.push(PlayingNote {
@@ -56,11 +56,11 @@ impl VirtualInstrument {
         });
     }
 
-    fn cache_note(
+    fn generate_note(
         &mut self,
         midi_pitch: u8,
         velocity: u8,
-    ) -> Result<rodio::source::Amplify<rodio::source::SineWave>, anyhow::Error> {
+    ) -> Result<rodio::source::Amplify<crate::oscillators::sine::Sine>, anyhow::Error> {
         // A4 = 440hz, A4 = 69
         let frequency = pitch_calc::calc::hz_from_step(midi_pitch as f32);
         println!(
@@ -68,8 +68,8 @@ impl VirtualInstrument {
             frequency,
             pitch_calc::calc::letter_octave_from_step(midi_pitch as f32)
         );
-        let wave = rodio::source::SineWave::new(frequency as u32);
+        let wave = crate::oscillators::sine::Sine::new(frequency);
 
-        Ok(wave.amplify(velocity as f32 / 127.0 * 0.6))
+        Ok(wave.amplify(velocity as f32 / 127.0 * 0.3))
     }
 }
