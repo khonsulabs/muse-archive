@@ -147,7 +147,7 @@ impl VirtualInstrument {
         decay.line_to(Point::new(0.5, 0.5));
         let mut release = BezPath::new();
         release.move_to(Point::new(0.0, 0.8));
-        release.line_to(Point::new(0.3, 0.0));
+        release.line_to(Point::new(1.0, 0.0));
 
         let envelope_config =
             EnvelopeConfiguration::asdr(Some(attack), Some(decay), 0.5, Some(release))?;

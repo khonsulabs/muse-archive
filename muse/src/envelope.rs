@@ -256,17 +256,28 @@ where
         }
     }
 
+    fn stop_if_needed_or<F: Fn(&mut Self) -> (EnvelopeStage, Option<f32>)>(
+        &mut self,
+        f: F,
+    ) -> (EnvelopeStage, Option<f32>) {
+        if self.should_stop() {
+            self.advance_release()
+        } else {
+            f(self)
+        }
+    }
+
     fn advance_hold(&mut self) -> (EnvelopeStage, Option<f32>) {
         match self.hold.advance(self.frame, self.source.sample_rate()) {
             Some(value) => (EnvelopeStage::Hold, Some(value)),
-            None => self.advance_decay(),
+            None => self.stop_if_needed_or(Self::advance_decay),
         }
     }
 
     fn advance_decay(&mut self) -> (EnvelopeStage, Option<f32>) {
         match self.decay.advance(self.frame, self.source.sample_rate()) {
             Some(value) => (EnvelopeStage::Decay, Some(value)),
-            None => self.sustain(),
+            None => self.stop_if_needed_or(Self::sustain),
         }
     }
 
@@ -277,10 +288,7 @@ where
     fn advance_release(&mut self) -> (EnvelopeStage, Option<f32>) {
         match self.release.advance(self.frame, self.source.sample_rate()) {
             Some(value) => (EnvelopeStage::Release, Some(value)),
-            None => {
-                self.stop();
-                (EnvelopeStage::Completed, None)
-            }
+            None => self.stop(),
         }
     }
 
@@ -288,9 +296,10 @@ where
         *self.is_playing.read().unwrap() != PlayingState::Playing
     }
 
-    fn stop(&self) {
+    fn stop(&self) -> (EnvelopeStage, Option<f32>) {
         let mut control = self.is_playing.write().unwrap();
         *control = PlayingState::Stopped;
+        (EnvelopeStage::Completed, None)
     }
 }
 
@@ -301,23 +310,16 @@ where
     type Item = T::Item;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.state.is_playing() && self.should_stop() {
-            self.state = EnvelopeStage::Release;
-        }
-
         if let Some(value) = self.source.next() {
             self.frame = self.frame.wrapping_add(1);
 
             let (new_state, amplitude) = match self.state {
                 EnvelopeStage::Attack => self.advance_attack(),
-                EnvelopeStage::Hold => self.advance_hold(),
-                EnvelopeStage::Decay => self.advance_decay(),
-                EnvelopeStage::Sustain => self.sustain(),
+                EnvelopeStage::Hold => self.stop_if_needed_or(Self::advance_hold),
+                EnvelopeStage::Decay => self.stop_if_needed_or(Self::advance_decay),
+                EnvelopeStage::Sustain => self.stop_if_needed_or(Self::sustain),
                 EnvelopeStage::Release => self.advance_release(),
-                EnvelopeStage::Completed => {
-                    self.stop();
-                    (EnvelopeStage::Completed, None)
-                }
+                EnvelopeStage::Completed => self.stop(),
             };
 
             self.state = new_state;
