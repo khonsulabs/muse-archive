@@ -10,8 +10,8 @@ repository = "https://github.com/khonsulabs/muse"
 readme = "README.md"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
-midir="0.6"
-anyhow="1"
+midir = "0.6"
+anyhow = "1"
+kurbo = "0.6"
 muse = { path = "../muse" }

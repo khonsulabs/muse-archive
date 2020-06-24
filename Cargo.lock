@@ -27,6 +27,7 @@ name = "amuse"
 version = "0.0.1-dev"
 dependencies = [
  "anyhow",
+ "kurbo",
  "midir",
  "muse",
 ]
@@ -45,6 +46,12 @@ checksum = "f0e60b75072ecd4168020818c0107f2857bb6c4e64252d8d3983f6263b40a5c3"
 dependencies = [
  "num-traits",
 ]
+
+[[package]]
+name = "arrayvec"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cff77d8686867eceff3105329d4698d96c2391c176d5d03adc90c7389162b5b8"
 
 [[package]]
 name = "autocfg"
@@ -244,6 +251,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "kurbo"
+version = "0.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2520c9c9010461ec2b4573599bca458272319a314fd0b9476cacfcb9b6e5adc8"
+dependencies = [
+ "arrayvec",
+]
+
+[[package]]
 name = "lazy_static"
 version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -355,6 +371,7 @@ version = "0.0.1-dev"
 dependencies = [
  "anyhow",
  "approx",
+ "kurbo",
  "lazy_static",
  "pitch_calc",
  "rodio",
