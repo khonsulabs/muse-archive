@@ -9,8 +9,8 @@ pub struct VirtualInstrument {
 
 pub struct PlayingNote {
     pitch: u8,
-    velocity: u8,
-    sink: rodio::Sink,
+    _velocity: u8,
+    _sink: rodio::Sink,
     key_is_pressed: bool,
 }
 
@@ -45,8 +45,8 @@ impl VirtualInstrument {
         sink.append(source);
         self.playing_notes.push(PlayingNote {
             pitch,
-            velocity,
-            sink,
+            _velocity: velocity,
+            _sink: sink,
             key_is_pressed: true,
         });
 
