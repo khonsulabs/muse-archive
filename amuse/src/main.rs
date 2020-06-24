@@ -1,4 +1,5 @@
-use muse::instrument;
+use kurbo::{BezPath, Point};
+use muse::prelude::*;
 use std::error::Error;
 use std::io::{stdin, stdout, Write};
 
@@ -148,9 +149,46 @@ impl From<u8> for Controller {
     }
 }
 
+pub struct TestInstrument {}
+
+impl ToneProvider for TestInstrument {
+    type Source = rodio::source::Amplify<Envelope<Oscillator<Sawtooth>>>;
+    fn generate_tone(
+        pitch: f32,
+        velocity: f32,
+    ) -> Result<GeneratedTone<Self::Source>, anyhow::Error> {
+        // A4 = 440hz, A4 = 69
+        let frequency = pitch_calc::calc::hz_from_step(pitch);
+        println!(
+            "Playing {}hz, {:?}",
+            frequency,
+            pitch_calc::calc::letter_octave_from_step(pitch)
+        );
+        let wave = Oscillator::new(frequency);
+        let mut attack = BezPath::new();
+        attack.line_to(Point::new(1.0, 1.0));
+        let mut decay = BezPath::new();
+        decay.move_to(Point::new(0.0, 1.0));
+        decay.line_to(Point::new(0.5, 0.5));
+        let mut release = BezPath::new();
+        release.move_to(Point::new(0.0, 0.8));
+        release.line_to(Point::new(1.0, 0.0));
+
+        let envelope_config =
+            EnvelopeConfiguration::asdr(Some(attack), Some(decay), 0.5, Some(release))?;
+
+        let (envelope, is_playing_handle) = envelope_config.envelop(wave);
+
+        Ok(GeneratedTone {
+            source: envelope.amplify(velocity as f32 / 127.0 * 0.3),
+            control: is_playing_handle,
+        })
+    }
+}
+
 fn run() -> Result<(), Box<dyn Error>> {
     let mut input = String::new();
-    let mut instrument = instrument::VirtualInstrument::default();
+    let mut instrument = VirtualInstrument::<TestInstrument>::default();
 
     let mut midi_in = MidiInput::new("midir reading input")?;
     midi_in.ignore(Ignore::None);

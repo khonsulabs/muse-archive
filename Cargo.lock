@@ -30,6 +30,7 @@ dependencies = [
  "kurbo",
  "midir",
  "muse",
+ "rodio",
 ]
 
 [[package]]

@@ -1,30 +1,40 @@
-use crate::{
-    envelope::{Envelope, EnvelopeConfiguration, PlayingState},
-    oscillators::*,
-};
-use kurbo::{BezPath, Point};
-use rodio::source::Source;
+use crate::envelope::PlayingState;
 use std::{
     sync::{Arc, RwLock},
     time::Duration,
 };
 
-pub struct VirtualInstrument {
+pub struct GeneratedTone<T> {
+    pub source: T,
+    pub control: Arc<RwLock<PlayingState>>,
+}
+
+pub trait ToneProvider {
+    type Source: rodio::Source<Item = f32> + Send + Sync + 'static;
+
+    fn generate_tone(
+        pitch: f32,
+        velocity: f32,
+    ) -> Result<GeneratedTone<Self::Source>, anyhow::Error>;
+}
+
+pub struct VirtualInstrument<T> {
     playing_notes: Vec<PlayingNote>,
     device: rodio::Device,
     sustain: bool,
+    _phantom: std::marker::PhantomData<T>,
 }
 
 pub struct PlayingNote {
     pitch: u8,
     _velocity: u8,
     sink: Option<rodio::Sink>,
-    is_playing: Arc<RwLock<PlayingState>>,
+    control: Arc<RwLock<PlayingState>>,
 }
 
 impl PlayingNote {
     fn is_playing(&self) -> bool {
-        let value = self.is_playing.read().unwrap();
+        let value = self.control.read().unwrap();
         if let PlayingState::Playing = *value {
             true
         } else {
@@ -33,7 +43,7 @@ impl PlayingNote {
     }
 
     fn stop(&self) {
-        let mut value = self.is_playing.write().unwrap();
+        let mut value = self.control.write().unwrap();
         *value = PlayingState::Stopping;
     }
 }
@@ -43,7 +53,7 @@ impl Drop for PlayingNote {
         self.stop();
 
         let sink = std::mem::replace(&mut self.sink, None);
-        let is_playing = self.is_playing.clone();
+        let is_playing = self.control.clone();
 
         std::thread::spawn(move || loop {
             {
@@ -65,33 +75,41 @@ pub enum Loudness {
     Pianissimo,
 }
 
-impl Default for VirtualInstrument {
+impl<T> Default for VirtualInstrument<T>
+where
+    T: ToneProvider,
+{
     fn default() -> Self {
         let device = rodio::default_output_device().expect("No default audio output device");
         Self::new(device)
     }
 }
 
-impl VirtualInstrument {
+impl<T> VirtualInstrument<T>
+where
+    T: ToneProvider,
+{
     pub fn new(device: rodio::Device) -> Self {
         Self {
             device,
             playing_notes: Vec::new(),
             sustain: false,
+            _phantom: std::marker::PhantomData::default(),
         }
     }
+
     pub fn play_note(&mut self, pitch: u8, velocity: u8) -> Result<(), anyhow::Error> {
         // We need to re-tone the note, so we'll get rid of the existing notes
         self.playing_notes.retain(|n| n.pitch != pitch);
 
-        let (source, is_playing) = self.generate_note(pitch, velocity)?;
+        let GeneratedTone { source, control } = T::generate_tone(pitch as f32, velocity as f32)?;
         let sink = rodio::Sink::new(&self.device);
         sink.append(source);
         self.playing_notes.push(PlayingNote {
             pitch,
             _velocity: velocity,
             sink: Some(sink),
-            is_playing,
+            control,
         });
 
         Ok(())
@@ -119,44 +137,5 @@ impl VirtualInstrument {
         if !active {
             self.playing_notes.retain(|n| n.is_playing());
         }
-    }
-
-    fn generate_note(
-        &mut self,
-        midi_pitch: u8,
-        velocity: u8,
-    ) -> Result<
-        (
-            rodio::source::Amplify<Envelope<Oscillator<Sawtooth>>>,
-            Arc<RwLock<PlayingState>>,
-        ),
-        anyhow::Error,
-    > {
-        // A4 = 440hz, A4 = 69
-        let frequency = pitch_calc::calc::hz_from_step(midi_pitch as f32);
-        println!(
-            "Playing {}hz, {:?}",
-            frequency,
-            pitch_calc::calc::letter_octave_from_step(midi_pitch as f32)
-        );
-        let wave = Oscillator::new(frequency);
-        let mut attack = BezPath::new();
-        attack.line_to(Point::new(1.0, 1.0));
-        let mut decay = BezPath::new();
-        decay.move_to(Point::new(0.0, 1.0));
-        decay.line_to(Point::new(0.5, 0.5));
-        let mut release = BezPath::new();
-        release.move_to(Point::new(0.0, 0.8));
-        release.line_to(Point::new(1.0, 0.0));
-
-        let envelope_config =
-            EnvelopeConfiguration::asdr(Some(attack), Some(decay), 0.5, Some(release))?;
-
-        let (envelope, is_playing_handle) = envelope_config.envelop(wave);
-
-        Ok((
-            envelope.amplify(velocity as f32 / 127.0 * 0.3),
-            is_playing_handle,
-        ))
     }
 }
