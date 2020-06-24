@@ -50,7 +50,7 @@ impl Drop for PlayingNote {
                 let value = is_playing.read().unwrap();
                 if let PlayingState::Stopped = *value {
                     sink.unwrap().stop();
-                    break;
+                    return;
                 }
             }
             std::thread::sleep(Duration::from_millis(10))
@@ -150,7 +150,8 @@ impl VirtualInstrument {
         release.line_to(Point::new(0.3, 0.0));
 
         let envelope_config =
-            EnvelopeConfiguration::asdr(Some(attack), Some(decay), 0.8, Some(release))?;
+            EnvelopeConfiguration::asdr(Some(attack), Some(decay), 0.5, Some(release))?;
+
         let (envelope, is_playing_handle) = envelope_config.envelop(wave);
 
         Ok((

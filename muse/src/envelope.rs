@@ -277,12 +277,20 @@ where
     fn advance_release(&mut self) -> (EnvelopeStage, Option<f32>) {
         match self.release.advance(self.frame, self.source.sample_rate()) {
             Some(value) => (EnvelopeStage::Release, Some(value)),
-            None => (EnvelopeStage::Completed, None),
+            None => {
+                self.stop();
+                (EnvelopeStage::Completed, None)
+            }
         }
     }
 
     fn should_stop(&self) -> bool {
         *self.is_playing.read().unwrap() != PlayingState::Playing
+    }
+
+    fn stop(&self) {
+        let mut control = self.is_playing.write().unwrap();
+        *control = PlayingState::Stopped;
     }
 }
 
@@ -306,7 +314,10 @@ where
                 EnvelopeStage::Decay => self.advance_decay(),
                 EnvelopeStage::Sustain => self.sustain(),
                 EnvelopeStage::Release => self.advance_release(),
-                EnvelopeStage::Completed => (EnvelopeStage::Completed, None),
+                EnvelopeStage::Completed => {
+                    self.stop();
+                    (EnvelopeStage::Completed, None)
+                }
             };
 
             self.state = new_state;
