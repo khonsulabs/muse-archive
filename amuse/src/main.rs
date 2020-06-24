@@ -67,7 +67,8 @@ impl From<&[u8]> for Message {
                     0xE0 => ChannelMessage::PitchBend {
                         // Byte 1 is the least significant byte (7 bits though)
                         // Byte 2 is the most significant (also 7 bits)
-                        amount: (bytes[2] as u16) << 7 | bytes[1] as u16,
+                        // Value of 8192 (64 << 7) is no bend
+                        amount: ((bytes[2] as i16) << 7 | bytes[1] as i16) - 8192,
                     },
                     _ => unreachable!(),
                 },
@@ -97,7 +98,7 @@ pub enum ChannelMessage {
     ControlChange { controller: Controller, value: u8 },
     PolyphonicKeyPressure { key: u8, pressure: u8 },
     ChannelPressure { pressure: u8 },
-    PitchBend { amount: u16 },
+    PitchBend { amount: i16 },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
