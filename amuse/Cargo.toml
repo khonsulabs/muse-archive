@@ -15,4 +15,3 @@ midir = "0.6"
 anyhow = "1"
 kurbo = "0.6"
 muse = { path = "../muse" }
-rodio = "0.11"

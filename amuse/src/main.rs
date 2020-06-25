@@ -151,19 +151,12 @@ impl From<u8> for Controller {
 
 pub struct TestInstrument {}
 
-impl ToneProvider for TestInstrument {
+impl ToneGenerator for TestInstrument {
     type Source = rodio::source::Amplify<Envelope<Oscillator<Sawtooth>>>;
-    fn generate_tone(
-        pitch: f32,
-        velocity: f32,
-    ) -> Result<GeneratedTone<Self::Source>, anyhow::Error> {
+    fn generate_tone(note: Note) -> Result<GeneratedTone<Self::Source>, anyhow::Error> {
         // A4 = 440hz, A4 = 69
-        let frequency = pitch_calc::calc::hz_from_step(pitch);
-        println!(
-            "Playing {}hz, {:?}",
-            frequency,
-            pitch_calc::calc::letter_octave_from_step(pitch)
-        );
+        let frequency = note.hertz();
+        println!("Playing {}", note);
         let wave = Oscillator::new(frequency);
         let mut sustain = BezPath::new();
         sustain.move_to(Point::new(0.0, 1.0));
@@ -177,7 +170,7 @@ impl ToneProvider for TestInstrument {
         let (envelope, is_playing_handle) = envelope_config.envelop(wave);
 
         Ok(GeneratedTone {
-            source: envelope.amplify(velocity as f32 / 127.0 * 0.3),
+            source: envelope.amplify(note.velocity as f32 / 127.0 * 0.3),
             control: is_playing_handle,
         })
     }
@@ -231,7 +224,7 @@ fn run() -> Result<(), Box<dyn Error>> {
                         match message {
                             ChannelMessage::NoteOff { key, .. } => instrument.stop_note(*key),
                             ChannelMessage::NoteOn { key, velocity } => {
-                                instrument.play_note(*key, *velocity).unwrap()
+                                instrument.play_note(Note::new(*key, *velocity)).unwrap()
                             }
                             ChannelMessage::ControlChange { controller, value } => match controller
                             {
