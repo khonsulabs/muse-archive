@@ -132,4 +132,8 @@ impl EnvelopeCurveInstance {
             )
         }
     }
+
+    pub fn terminal_value(&self) -> Option<f32> {
+        self.segments.last().map(|s| s.end_value)
+    }
 }

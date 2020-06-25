@@ -46,6 +46,11 @@ impl PlayingNote {
         let mut value = self.control.write().unwrap();
         *value = PlayingState::Stopping;
     }
+
+    fn sustain(&self) {
+        let mut value = self.control.write().unwrap();
+        *value = PlayingState::Sustaining;
+    }
 }
 
 impl Drop for PlayingNote {
@@ -124,7 +129,7 @@ where
                 .iter_mut()
                 .find(|note| note.pitch == pitch)
             {
-                existing_note.stop();
+                existing_note.sustain();
             }
         } else {
             self.playing_notes.retain(|note| note.pitch != pitch);

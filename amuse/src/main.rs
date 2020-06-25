@@ -165,17 +165,14 @@ impl ToneProvider for TestInstrument {
             pitch_calc::calc::letter_octave_from_step(pitch)
         );
         let wave = Oscillator::new(frequency);
-        let mut attack = BezPath::new();
-        attack.line_to(Point::new(1.0, 1.0));
-        let mut decay = BezPath::new();
-        decay.move_to(Point::new(0.0, 1.0));
-        decay.line_to(Point::new(0.5, 0.5));
-        let mut release = BezPath::new();
-        release.move_to(Point::new(0.0, 0.8));
-        release.line_to(Point::new(1.0, 0.0));
+        let mut sustain = BezPath::new();
+        sustain.move_to(Point::new(0.0, 1.0));
+        sustain.line_to(Point::new(8.0, 0.0));
+        // let mut release = BezPath::new();
+        // release.move_to(Point::new(0.0, 0.8));
+        // release.line_to(Point::new(60.0, 0.0));
 
-        let envelope_config =
-            EnvelopeConfiguration::asdr(Some(attack), Some(decay), 0.5, Some(release))?;
+        let envelope_config = EnvelopeConfiguration::asdr(None, None, Some(sustain), None)?;
 
         let (envelope, is_playing_handle) = envelope_config.envelop(wave);
 

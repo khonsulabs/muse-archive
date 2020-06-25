@@ -10,7 +10,7 @@ pub struct EnvelopeConfiguration {
     pub attack: EnvelopeCurve,
     pub hold: EnvelopeCurve,
     pub decay: EnvelopeCurve,
-    pub sustain: f32,
+    pub sustain: EnvelopeCurve,
     pub release: EnvelopeCurve,
 }
 
@@ -18,7 +18,7 @@ impl EnvelopeConfiguration {
     pub fn asdr(
         attack: Option<BezPath>,
         decay: Option<BezPath>,
-        sustain: f32,
+        sustain: Option<BezPath>,
         release: Option<BezPath>,
     ) -> Result<Self, EnvelopeCurveError> {
         Self::ahsdr(attack, None, decay, sustain, release)
@@ -28,12 +28,13 @@ impl EnvelopeConfiguration {
         attack: Option<BezPath>,
         hold: Option<BezPath>,
         decay: Option<BezPath>,
-        sustain: f32,
+        sustain: Option<BezPath>,
         release: Option<BezPath>,
     ) -> Result<Self, EnvelopeCurveError> {
         let attack = EnvelopeCurve::try_from(attack)?;
         let hold = EnvelopeCurve::try_from(hold)?;
         let decay = EnvelopeCurve::try_from(decay)?;
+        let sustain = EnvelopeCurve::try_from(sustain)?;
         let release = EnvelopeCurve::try_from(release)?;
         Ok(Self {
             attack,
@@ -58,7 +59,7 @@ impl EnvelopeConfiguration {
             attack: self.attack.instantiate(),
             hold: self.hold.instantiate(),
             decay: self.decay.instantiate(),
-            sustain: self.sustain,
+            sustain: self.sustain.instantiate(),
             release: self.release.instantiate(),
 
             source,

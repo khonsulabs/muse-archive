@@ -6,14 +6,23 @@ use std::{
 
 mod config;
 mod curve;
-mod stage;
 pub use config::EnvelopeConfiguration;
 use curve::*;
-use stage::EnvelopeStage;
+
+#[derive(Debug, Clone, Copy)]
+pub enum EnvelopeStage {
+    Attack,
+    Hold,
+    Decay,
+    Sustain,
+    Release,
+    Completed,
+}
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum PlayingState {
     Playing,
+    Sustaining,
     Stopping,
     Stopped,
 }
@@ -26,7 +35,7 @@ pub struct Envelope<T> {
     attack: EnvelopeCurveInstance,
     hold: EnvelopeCurveInstance,
     decay: EnvelopeCurveInstance,
-    sustain: f32,
+    sustain: EnvelopeCurveInstance,
     release: EnvelopeCurveInstance,
 
     pub source: T,
@@ -69,7 +78,10 @@ where
     }
 
     fn sustain(&mut self) -> (EnvelopeStage, Option<f32>) {
-        (EnvelopeStage::Sustain, Some(self.sustain))
+        match self.sustain.advance(self.frame, self.source.sample_rate()) {
+            Some(value) => (EnvelopeStage::Decay, Some(value)),
+            None => (EnvelopeStage::Sustain, self.sustain.terminal_value()),
+        }
     }
 
     fn advance_release(&mut self) -> (EnvelopeStage, Option<f32>) {
@@ -80,7 +92,10 @@ where
     }
 
     fn should_stop(&self) -> bool {
-        *self.is_playing.read().unwrap() != PlayingState::Playing
+        match *self.is_playing.read().unwrap() {
+            PlayingState::Playing | PlayingState::Sustaining => false,
+            _ => true,
+        }
     }
 
     fn stop(&self) -> (EnvelopeStage, Option<f32>) {
