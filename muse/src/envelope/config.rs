@@ -55,6 +55,7 @@ impl EnvelopeConfiguration {
         let envelope = Envelope {
             frame: 0,
             state: EnvelopeStage::Attack,
+            last_value: None,
 
             attack: self.attack.instantiate(),
             hold: self.hold.instantiate(),

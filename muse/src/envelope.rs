@@ -31,6 +31,7 @@ pub struct Envelope<T> {
     frame: u32,
     state: EnvelopeStage,
     is_playing: Arc<RwLock<PlayingState>>,
+    last_value: Option<f32>,
 
     attack: EnvelopeCurveInstance,
     hold: EnvelopeCurveInstance,
@@ -85,6 +86,12 @@ where
     }
 
     fn advance_release(&mut self) -> (EnvelopeStage, Option<f32>) {
+        if self.release.is_at_start() {
+            println!("Releasing {:?}", self.last_value);
+            if let Some(last_value) = self.last_value {
+                self.release.jump_to(last_value, self.sample_rate());
+            }
+        }
         match self.release.advance(self.frame, self.source.sample_rate()) {
             Some(value) => (EnvelopeStage::Release, Some(value)),
             None => self.stop(),
@@ -125,6 +132,7 @@ where
             };
 
             self.state = new_state;
+            self.last_value = amplitude;
             amplitude.map(|a| a * value)
         } else {
             None

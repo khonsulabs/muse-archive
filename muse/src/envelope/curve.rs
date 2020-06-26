@@ -12,6 +12,7 @@ impl EnvelopeCurve {
             segments: self.segments.clone(),
             segment: None,
             start_frame: None,
+            start_frame_offset: None,
         }
     }
 }
@@ -83,9 +84,16 @@ pub struct EnvelopeSegment {
     pub end_value: f32,
 }
 
+impl EnvelopeSegment {
+    pub fn frames_for_sample_rate(&self, sample_rate: u32) -> u32 {
+        (self.duration * sample_rate as f32) as u32
+    }
+}
+
 pub struct EnvelopeCurveInstance {
     segments: Arc<Vec<EnvelopeSegment>>,
     start_frame: Option<u32>,
+    start_frame_offset: Option<u32>,
     segment: Option<usize>,
 }
 
@@ -113,7 +121,8 @@ impl EnvelopeCurveInstance {
 
         let segment = &self.segments[current_segment_index];
         let segment_frames = (segment.duration * sample_rate as f32) as u32;
-        let relative_frame = current_frame - start_frame;
+        let relative_frame =
+            current_frame - start_frame + self.start_frame_offset.unwrap_or_default();
 
         if segment_frames <= relative_frame {
             if current_segment_index + 1 >= self.segments.len() {
@@ -135,5 +144,39 @@ impl EnvelopeCurveInstance {
 
     pub fn terminal_value(&self) -> Option<f32> {
         self.segments.last().map(|s| s.end_value)
+    }
+
+    /// Solves the curve for a y value of `target_value`. Used for making release seamlessly fade from wherever the current state is
+    pub fn jump_to(&mut self, target_value: f32, sample_rate: u32) {
+        if let Some((index, containing_segment)) =
+            self.segments.iter().enumerate().find(|(_, segment)| {
+                segment.start_value > target_value && segment.end_value <= target_value
+            })
+        {
+            self.segment = Some(index);
+
+            let segment_value_delta = containing_segment.start_value - containing_segment.end_value;
+            let relative_value = containing_segment.start_value - target_value;
+            let value_ratio = relative_value / segment_value_delta;
+            let segment_frames = containing_segment.frames_for_sample_rate(sample_rate);
+
+            self.start_frame_offset = Some((value_ratio * segment_frames as f32) as u32);
+            println!(
+                "jump_to: svd {} rv {} vr {}, sf {}, off {:?}",
+                segment_value_delta,
+                relative_value,
+                value_ratio,
+                segment_frames,
+                self.start_frame_offset
+            );
+        } else if target_value == 0.0 {
+            // Setting the start_frame to 0 is a simple shortcut to making sure the curve is finished
+            self.start_frame = Some(0);
+            self.segment = Some(self.segments.len() - 1);
+        }
+    }
+
+    pub fn is_at_start(&self) -> bool {
+        self.start_frame.is_none()
     }
 }
