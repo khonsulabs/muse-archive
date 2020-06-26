@@ -120,7 +120,7 @@ impl EnvelopeCurveInstance {
         };
 
         let segment = &self.segments[current_segment_index];
-        let segment_frames = (segment.duration * sample_rate as f32) as u32;
+        let segment_frames = segment.frames_for_sample_rate(sample_rate);
         let relative_frame =
             current_frame - start_frame + self.start_frame_offset.unwrap_or_default();
 
@@ -147,7 +147,7 @@ impl EnvelopeCurveInstance {
     }
 
     /// Solves the curve for a y value of `target_value`. Used for making release seamlessly fade from wherever the current state is
-    pub fn jump_to(&mut self, target_value: f32, sample_rate: u32) {
+    pub fn descend_to(&mut self, target_value: f32, sample_rate: u32) {
         if let Some((index, containing_segment)) =
             self.segments.iter().enumerate().find(|(_, segment)| {
                 segment.start_value > target_value && segment.end_value <= target_value

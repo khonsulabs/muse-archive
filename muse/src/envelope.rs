@@ -89,7 +89,7 @@ where
         if self.release.is_at_start() {
             println!("Releasing {:?}", self.last_value);
             if let Some(last_value) = self.last_value {
-                self.release.jump_to(last_value, self.sample_rate());
+                self.release.descend_to(last_value, self.sample_rate());
             }
         }
         match self.release.advance(self.frame, self.source.sample_rate()) {
