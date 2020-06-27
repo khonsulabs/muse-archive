@@ -1,18 +1,43 @@
 use kurbo::{BezPath, PathEl};
 use std::{convert::TryFrom, sync::Arc};
 
-#[derive(Default, Debug)]
-pub struct EnvelopeCurve {
-    segments: Arc<Vec<EnvelopeSegment>>,
+#[derive(Default, Debug, Clone)]
+pub struct FlattenedCurve {
+    pub(crate) segments: Arc<Vec<EnvelopeSegment>>,
 }
 
-impl EnvelopeCurve {
+impl FlattenedCurve {
     pub fn instantiate(&self) -> EnvelopeCurveInstance {
         EnvelopeCurveInstance {
             segments: self.segments.clone(),
             segment: None,
             start_frame: None,
             start_frame_offset: None,
+        }
+    }
+
+    pub fn terminal_value(&self) -> Option<f32> {
+        self.segments.last().map(|s| s.end_value)
+    }
+
+    pub fn start_value(&self) -> Option<f32> {
+        self.segments.get(0).map(|s| s.start_value)
+    }
+
+    pub fn sustain(value: f32) -> Self {
+        EnvelopeSegment {
+            start_value: value,
+            end_value: value,
+            duration: 0.0,
+        }
+        .into()
+    }
+}
+
+impl From<EnvelopeSegment> for FlattenedCurve {
+    fn from(segment: EnvelopeSegment) -> Self {
+        Self {
+            segments: Arc::new(vec![segment]),
         }
     }
 }
@@ -23,9 +48,11 @@ pub enum EnvelopeCurveError {
     NonContiguousPath,
     #[error("curve is too complex")]
     TooComplex,
+    #[error("attempting to use the wrong type of curve")]
+    InvalidCurveType,
 }
 
-impl TryFrom<BezPath> for EnvelopeCurve {
+impl TryFrom<BezPath> for FlattenedCurve {
     type Error = EnvelopeCurveError;
     fn try_from(curve: BezPath) -> Result<Self, Self::Error> {
         let mut flattened_path = Vec::new();
@@ -34,7 +61,6 @@ impl TryFrom<BezPath> for EnvelopeCurve {
         // so that's why 0.01 is passed
         curve.flatten(0.01, |path| flattened_path.push(path));
 
-        //
         let mut segments = Vec::new();
         let mut current_location = None;
         for path in flattened_path {
@@ -67,7 +93,7 @@ impl TryFrom<BezPath> for EnvelopeCurve {
     }
 }
 
-impl TryFrom<Option<BezPath>> for EnvelopeCurve {
+impl TryFrom<Option<BezPath>> for FlattenedCurve {
     type Error = EnvelopeCurveError;
     fn try_from(curve: Option<BezPath>) -> Result<Self, Self::Error> {
         match curve {

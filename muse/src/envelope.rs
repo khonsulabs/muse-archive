@@ -6,7 +6,8 @@ use std::{
 
 mod config;
 mod curve;
-pub use config::EnvelopeConfiguration;
+pub use config::{CurveBuilder, EnvelopeBuilder, EnvelopeConfiguration, EnvelopeCurve, Point};
+pub use curve::FlattenedCurve;
 use curve::*;
 
 #[derive(Debug, Clone, Copy)]
@@ -49,7 +50,10 @@ where
     fn advance_attack(&mut self) -> (EnvelopeStage, Option<f32>) {
         match self.attack.advance(self.frame, self.source.sample_rate()) {
             Some(value) => (EnvelopeStage::Attack, Some(value)),
-            None => self.advance_hold(),
+            None => {
+                println!("Advancing to hold");
+                self.advance_hold()
+            }
         }
     }
 
@@ -58,6 +62,7 @@ where
         f: F,
     ) -> (EnvelopeStage, Option<f32>) {
         if self.should_stop() {
+            println!("Skipping to release");
             self.advance_release()
         } else {
             f(self)
@@ -67,21 +72,30 @@ where
     fn advance_hold(&mut self) -> (EnvelopeStage, Option<f32>) {
         match self.hold.advance(self.frame, self.source.sample_rate()) {
             Some(value) => (EnvelopeStage::Hold, Some(value)),
-            None => self.stop_if_needed_or(Self::advance_decay),
+            None => {
+                println!("Advancing to decay");
+                self.stop_if_needed_or(Self::advance_decay)
+            }
         }
     }
 
     fn advance_decay(&mut self) -> (EnvelopeStage, Option<f32>) {
         match self.decay.advance(self.frame, self.source.sample_rate()) {
             Some(value) => (EnvelopeStage::Decay, Some(value)),
-            None => self.stop_if_needed_or(Self::sustain),
+            None => {
+                println!("Advancing to sustain");
+                self.stop_if_needed_or(Self::sustain)
+            }
         }
     }
 
     fn sustain(&mut self) -> (EnvelopeStage, Option<f32>) {
         match self.sustain.advance(self.frame, self.source.sample_rate()) {
             Some(value) => (EnvelopeStage::Decay, Some(value)),
-            None => (EnvelopeStage::Sustain, self.sustain.terminal_value()),
+            None => (
+                EnvelopeStage::Sustain,
+                self.sustain.terminal_value().or_else(|| self.last_value),
+            ),
         }
     }
 

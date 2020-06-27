@@ -1,7 +1,9 @@
-use kurbo::{BezPath, Point};
 use muse::prelude::*;
-use std::error::Error;
-use std::io::{stdin, stdout, Write};
+use std::{
+    error::Error,
+    io::{stdin, stdout, Write},
+    time::Duration,
+};
 
 use midir::{Ignore, MidiInput};
 
@@ -152,24 +154,19 @@ impl From<u8> for Controller {
 pub struct TestInstrument {}
 
 impl ToneGenerator for TestInstrument {
-    type Source = rodio::source::Amplify<Envelope<Oscillator<Triangle>>>;
+    type Source = rodio::source::Amplify<Envelope<Oscillator<Sine>>>;
     fn generate_tone(note: Note) -> Result<GeneratedTone<Self::Source>, anyhow::Error> {
         // A4 = 440hz, A4 = 69
         let frequency = note.hertz();
         println!("Playing {}", note);
         let wave = Oscillator::new(frequency);
-        let mut sustain = BezPath::new();
-        sustain.move_to(Point::new(0.0, 1.0));
-        sustain.line_to(Point::new(
-            3.0 + 8.0 * (1.0 - note.step as f64 / 108.0),
-            0.0,
-        ));
-        let mut release = BezPath::new();
-        release.move_to(Point::new(0.0, 1.0));
-        release.line_to(Point::new(1.0, 0.0));
 
-        let envelope_config =
-            EnvelopeConfiguration::asdr(None, None, Some(sustain), Some(release))?;
+        let envelope_config = EnvelopeBuilder::default()
+            .attack(EnvelopeCurve::Timed(Duration::from_millis(500)))
+            .decay(EnvelopeCurve::Timed(Duration::from_millis(500)))
+            .sustain(EnvelopeCurve::Sustain(0.5))
+            .release(EnvelopeCurve::Timed(Duration::from_millis(100)))
+            .build()?;
 
         let (envelope, is_playing_handle) = envelope_config.envelop(wave);
 
