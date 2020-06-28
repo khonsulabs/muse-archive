@@ -154,26 +154,27 @@ impl From<u8> for Controller {
 pub struct TestInstrument {}
 
 impl ToneGenerator for TestInstrument {
-    type Source = rodio::source::Amplify<Envelope<Oscillator<Sine>>>;
-    fn generate_tone(note: Note) -> Result<GeneratedTone<Self::Source>, anyhow::Error> {
+    type Source = rodio::source::Amplify<Oscillator<Triangle>>;
+    fn generate_tone(
+        note: Note,
+        controls: &mut ControlHandles,
+    ) -> Result<Self::Source, anyhow::Error> {
         // A4 = 440hz, A4 = 69
         let frequency = note.hertz();
         println!("Playing {}", note);
-        let wave = Oscillator::new(frequency);
+
+        // create some filters
 
         let envelope_config = EnvelopeBuilder::default()
-            .attack(EnvelopeCurve::Timed(Duration::from_millis(500)))
-            .decay(EnvelopeCurve::Timed(Duration::from_millis(500)))
+            .attack(EnvelopeCurve::Timed(Duration::from_millis(50)))
+            .decay(EnvelopeCurve::Timed(Duration::from_millis(100)))
             .sustain(EnvelopeCurve::Sustain(0.5))
-            .release(EnvelopeCurve::Timed(Duration::from_millis(100)))
+            .release(EnvelopeCurve::Timed(Duration::from_millis(50)))
             .build()?;
 
-        let (envelope, is_playing_handle) = envelope_config.envelop(wave);
+        let wave = Oscillator::new(frequency, envelope_config.as_parameter(controls));
 
-        Ok(GeneratedTone {
-            source: envelope.amplify(note.velocity as f32 / 127.0 * 0.3),
-            control: is_playing_handle,
-        })
+        Ok(wave.amplify(note.velocity as f32 / 127.0 * 0.3))
     }
 }
 

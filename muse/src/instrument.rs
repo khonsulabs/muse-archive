@@ -9,10 +9,15 @@ pub struct GeneratedTone<T> {
     pub control: Arc<RwLock<PlayingState>>,
 }
 
-pub trait ToneGenerator {
+pub type ControlHandles = Vec<Arc<RwLock<PlayingState>>>;
+
+pub trait ToneGenerator: Sized {
     type Source: rodio::Source<Item = f32> + Send + Sync + 'static;
 
-    fn generate_tone(note: Note) -> Result<GeneratedTone<Self::Source>, anyhow::Error>;
+    fn generate_tone(
+        note: Note,
+        controls: &mut ControlHandles,
+    ) -> Result<Self::Source, anyhow::Error>;
 }
 
 pub struct VirtualInstrument<T> {
@@ -25,27 +30,33 @@ pub struct VirtualInstrument<T> {
 pub struct PlayingNote {
     note: Note,
     sink: Option<rodio::Sink>,
-    control: Arc<RwLock<PlayingState>>,
+    controls: Vec<Arc<RwLock<PlayingState>>>,
 }
 
 impl PlayingNote {
     fn is_playing(&self) -> bool {
-        let value = self.control.read().unwrap();
-        if let PlayingState::Playing = *value {
-            true
-        } else {
-            false
+        for control in self.controls.iter() {
+            let value = control.read().unwrap();
+            if let PlayingState::Playing = *value {
+                return true;
+            }
         }
+
+        false
     }
 
     fn stop(&self) {
-        let mut value = self.control.write().unwrap();
-        *value = PlayingState::Stopping;
+        for control in self.controls.iter() {
+            let mut value = control.write().unwrap();
+            *value = PlayingState::Stopping;
+        }
     }
 
     fn sustain(&self) {
-        let mut value = self.control.write().unwrap();
-        *value = PlayingState::Sustaining;
+        for control in self.controls.iter() {
+            let mut value = control.write().unwrap();
+            *value = PlayingState::Sustaining;
+        }
     }
 }
 
@@ -53,18 +64,25 @@ impl Drop for PlayingNote {
     fn drop(&mut self) {
         self.stop();
 
-        let sink = std::mem::replace(&mut self.sink, None);
-        let is_playing = self.control.clone();
+        let sink = std::mem::take(&mut self.sink);
+        let controls = std::mem::take(&mut self.controls);
 
         std::thread::spawn(move || loop {
             {
-                let value = is_playing.read().unwrap();
-                if let PlayingState::Stopped = *value {
+                let all_stopped = controls
+                    .iter()
+                    .map(|control| {
+                        let value = control.read().unwrap();
+                        *value
+                    })
+                    .all(|state| state == PlayingState::Stopped);
+                if all_stopped {
+                    println!("Sound stopping");
                     sink.unwrap().stop();
                     return;
                 }
             }
-            std::thread::sleep(Duration::from_millis(10))
+            std::thread::sleep(Duration::from_millis(10));
         });
     }
 }
@@ -103,13 +121,14 @@ where
         // We need to re-tone the note, so we'll get rid of the existing notes
         self.playing_notes.retain(|n| n.note.step != note.step);
 
-        let GeneratedTone { source, control } = T::generate_tone(note)?;
+        let mut controls = ControlHandles::new();
+        let source = T::generate_tone(note, &mut controls)?;
         let sink = rodio::Sink::new(&self.device);
         sink.append(source);
         self.playing_notes.push(PlayingNote {
             note,
             sink: Some(sink),
-            control,
+            controls,
         });
 
         Ok(())

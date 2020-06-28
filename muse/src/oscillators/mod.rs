@@ -9,6 +9,7 @@ mod sawtooth;
 mod sine;
 mod square;
 mod triangle;
+use crate::parameter::Parameter;
 pub use sawtooth::Sawtooth;
 pub use sine::Sine;
 pub use square::Square;
@@ -21,14 +22,16 @@ lazy_static! {
 #[derive(Debug, Clone)]
 pub struct Oscillator<T> {
     frequency: f32,
+    amplitude: Parameter,
     current_sample: usize,
     _of: std::marker::PhantomData<T>,
 }
 
 impl<T> Oscillator<T> {
-    pub fn new(frequency: f32) -> Self {
+    pub fn new(frequency: f32, amplitude: Parameter) -> Self {
         Self {
             frequency,
+            amplitude,
             current_sample: Self::initial_sample(),
             _of: std::marker::PhantomData::default(),
         }
@@ -66,7 +69,9 @@ where
             / Self::sample_rate() as f32;
         let value = value % (2.0 * PI);
 
-        Some(T::compute_sample(value))
+        self.amplitude
+            .next(self.sample_rate())
+            .map(|amplification| amplification * T::compute_sample(value))
     }
 }
 

@@ -116,6 +116,7 @@ impl EnvelopeSegment {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct EnvelopeCurveInstance {
     segments: Arc<Vec<EnvelopeSegment>>,
     start_frame: Option<u32>,

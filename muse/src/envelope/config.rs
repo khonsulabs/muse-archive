@@ -1,6 +1,7 @@
+// TODO BAD JON
 use super::{curve::*, Envelope, EnvelopeStage, PlayingState};
+use crate::{instrument::ControlHandles, parameter::Parameter};
 use kurbo::BezPath;
-use rodio::Source;
 use std::{
     convert::TryFrom,
     sync::{Arc, RwLock},
@@ -127,12 +128,34 @@ pub struct EnvelopeConfiguration {
 }
 
 impl EnvelopeConfiguration {
-    pub fn envelop<T: Source<Item = f32>>(
-        &self,
-        source: T,
-    ) -> (Envelope<T>, Arc<RwLock<PlayingState>>) {
+    // pub fn envelop<T: Source<Item = f32>>(
+    //     &self,
+    //     source: T,
+    // ) -> (Envelope<T>, Arc<RwLock<PlayingState>>) {
+    //     let is_playing = Arc::new(RwLock::new(PlayingState::Playing));
+    //     let is_playing_handle = is_playing.clone();
+
+    //     let envelope = Envelope {
+    //         frame: 0,
+    //         state: EnvelopeStage::Attack,
+    //         last_value: None,
+
+    //         attack: self.attack.instantiate(),
+    //         hold: self.hold.instantiate(),
+    //         decay: self.decay.instantiate(),
+    //         sustain: self.sustain.instantiate(),
+    //         release: self.release.instantiate(),
+
+    //         source,
+    //         is_playing,
+    //     };
+
+    //     (envelope, is_playing_handle)
+    // }
+
+    pub fn as_parameter(&self, controls: &mut ControlHandles) -> Parameter {
         let is_playing = Arc::new(RwLock::new(PlayingState::Playing));
-        let is_playing_handle = is_playing.clone();
+        controls.push(is_playing.clone());
 
         let envelope = Envelope {
             frame: 0,
@@ -145,11 +168,10 @@ impl EnvelopeConfiguration {
             sustain: self.sustain.instantiate(),
             release: self.release.instantiate(),
 
-            source,
             is_playing,
         };
 
-        (envelope, is_playing_handle)
+        Parameter::Envelope(Box::new(envelope))
     }
 }
 
