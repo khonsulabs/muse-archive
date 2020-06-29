@@ -25,6 +25,7 @@ pub struct PlayingHandle(Arc<u64>);
 struct PlayingSound {
     handle: PlayingHandle,
     sampler: Box<dyn Sampler>,
+    still_producing_values: bool,
 }
 
 #[derive(Debug)]
@@ -91,13 +92,13 @@ impl ManagerThread {
             // Check for new messages
             if let Err(err) = self.handle_incoming_messages() {
                 if let RecvTimeoutError::Timeout = err {
-                    continue;
+                    // Let the loop fall through
                 } else {
                     return Err(err);
                 }
             }
 
-            // TODO remove sounds that are finished playing
+            self.release_completed_sounds();
         }
     }
 
@@ -116,6 +117,7 @@ impl ManagerThread {
                     manager.playing_sounds.push(PlayingSound {
                         handle: handle.clone(),
                         sampler,
+                        still_producing_values: true,
                     });
                     handle
                 };
@@ -126,6 +128,13 @@ impl ManagerThread {
             }
             Err(err) => Err(err),
         }
+    }
+
+    fn release_completed_sounds(&mut self) {
+        let mut manager = self.manager.write().expect("Error locking manager");
+        manager
+            .playing_sounds
+            .retain(|s| s.still_producing_values || Arc::strong_count(&s.handle.0) > 1)
     }
 }
 
@@ -170,11 +179,13 @@ impl CpalThread {
     fn next_sample(manager: &ManagerHandle, format: &cpal::Format) -> Sample {
         let mut manager = manager.write().expect("Error locking manager for sampling");
         let mut combined_sample = Sample::default();
-        for sample in manager
-            .playing_sounds
-            .iter_mut()
-            .filter_map(|s| s.sampler.sample(format.sample_rate.0))
-        {
+        for sample in manager.playing_sounds.iter_mut().filter_map(|s| {
+            let sample = s.sampler.sample(format.sample_rate.0);
+            if sample.is_none() {
+                s.still_producing_values = false;
+            }
+            sample
+        }) {
             combined_sample += sample;
         }
         combined_sample
