@@ -1,4 +1,6 @@
-use crate::{envelope::PlayingState, note::Note};
+use crate::{
+    device::Device, envelope::PlayingState, manager::PlayingHandle, note::Note, sampler::Sampler,
+};
 use std::{
     sync::{Arc, RwLock},
     time::Duration,
@@ -12,7 +14,7 @@ pub struct GeneratedTone<T> {
 pub type ControlHandles = Vec<Arc<RwLock<PlayingState>>>;
 
 pub trait ToneGenerator: Sized {
-    type Source: rodio::Source<Item = f32> + Send + Sync + 'static;
+    type Source: Sampler + Send + Sync + 'static;
 
     fn generate_tone(
         note: Note,
@@ -22,14 +24,14 @@ pub trait ToneGenerator: Sized {
 
 pub struct VirtualInstrument<T> {
     playing_notes: Vec<PlayingNote>,
-    device: rodio::Device,
+    device: Device,
     sustain: bool,
     _phantom: std::marker::PhantomData<T>,
 }
 
 pub struct PlayingNote {
     note: Note,
-    sink: Option<rodio::Sink>,
+    handle: Option<PlayingHandle>,
     controls: Vec<Arc<RwLock<PlayingState>>>,
 }
 
@@ -64,7 +66,7 @@ impl Drop for PlayingNote {
     fn drop(&mut self) {
         self.stop();
 
-        let sink = std::mem::take(&mut self.sink);
+        let handle = std::mem::take(&mut self.handle);
         let controls = std::mem::take(&mut self.controls);
 
         std::thread::spawn(move || loop {
@@ -78,7 +80,7 @@ impl Drop for PlayingNote {
                     .all(|state| state == PlayingState::Stopped);
                 if all_stopped {
                     println!("Sound stopping");
-                    sink.unwrap().stop();
+                    drop(handle);
                     return;
                 }
             }
@@ -99,7 +101,7 @@ where
     T: ToneGenerator,
 {
     fn default() -> Self {
-        let device = rodio::default_output_device().expect("No default audio output device");
+        let device = Device::default_output().expect("No default audio output device");
         Self::new(device)
     }
 }
@@ -108,7 +110,7 @@ impl<T> VirtualInstrument<T>
 where
     T: ToneGenerator,
 {
-    pub fn new(device: rodio::Device) -> Self {
+    pub fn new(device: Device) -> Self {
         Self {
             device,
             playing_notes: Vec::new(),
@@ -123,11 +125,11 @@ where
 
         let mut controls = ControlHandles::new();
         let source = T::generate_tone(note, &mut controls)?;
-        let sink = rodio::Sink::new(&self.device);
-        sink.append(source);
+        let handle = Some(self.device.play(source)?);
+
         self.playing_notes.push(PlayingNote {
             note,
-            sink: Some(sink),
+            handle,
             controls,
         });
 
