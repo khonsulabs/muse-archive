@@ -154,7 +154,7 @@ impl From<u8> for Controller {
 pub struct TestInstrument {}
 
 impl ToneGenerator for TestInstrument {
-    type Source = rodio::source::Amplify<Oscillator<Triangle>>;
+    type Source = rodio::source::Amplify<Pan>;
     fn generate_tone(
         note: Note,
         controls: &mut ControlHandles,
@@ -172,7 +172,10 @@ impl ToneGenerator for TestInstrument {
             .release(EnvelopeCurve::Timed(Duration::from_millis(50)))
             .build()?;
 
-        let wave = Oscillator::new(frequency, envelope_config.as_parameter(controls));
+        let wave = Pan::new(
+            Parameter::Value(1.0),
+            Oscillator::<Sine>::new(frequency, envelope_config.as_parameter(controls)),
+        );
 
         Ok(wave.amplify(note.velocity as f32 / 127.0 * 0.3))
     }
