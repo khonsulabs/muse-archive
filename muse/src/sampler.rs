@@ -8,6 +8,21 @@ pub trait Sampler: Send + Sync + std::fmt::Debug {
     fn sample(&mut self, sample_rate: u32) -> Option<Sample>;
 }
 
+pub type PreparedSampler = Box<dyn Sampler + Send + Sync + 'static>;
+
+pub trait PreparableSampler {
+    fn prepare(self) -> PreparedSampler;
+}
+
+impl<T> PreparableSampler for T
+where
+    T: Sampler + 'static,
+{
+    fn prepare(self) -> PreparedSampler {
+        Box::new(self)
+    }
+}
+
 impl std::ops::Add<Sample> for Sample {
     type Output = Self;
 

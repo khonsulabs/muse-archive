@@ -1,19 +1,19 @@
 use crate::{
     parameter::Parameter,
-    sampler::{Sample, Sampler},
+    sampler::{PreparableSampler, PreparedSampler, Sample, Sampler},
 };
 
 #[derive(Debug)]
 pub struct Amplify {
     amplify: Parameter,
-    source: Box<dyn Sampler + Send + Sync>,
+    source: PreparedSampler,
 }
 
 impl Amplify {
-    pub fn new<T: Sampler + Send + Sync + 'static>(amplify: Parameter, source: T) -> Self {
+    pub fn new<T: PreparableSampler>(amplify: Parameter, source: T) -> Self {
         Self {
             amplify,
-            source: Box::new(source),
+            source: source.prepare(),
         }
     }
 }

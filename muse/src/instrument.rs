@@ -1,5 +1,6 @@
 use crate::{
-    device::Device, envelope::PlayingState, manager::PlayingHandle, note::Note, sampler::Sampler,
+    device::Device, envelope::PlayingState, manager::PlayingHandle, note::Note,
+    sampler::PreparedSampler,
 };
 use std::{
     sync::{Arc, RwLock},
@@ -14,12 +15,10 @@ pub struct GeneratedTone<T> {
 pub type ControlHandles = Vec<Arc<RwLock<PlayingState>>>;
 
 pub trait ToneGenerator: Sized {
-    type Source: Sampler + Send + Sync + 'static;
-
     fn generate_tone(
         note: Note,
         controls: &mut ControlHandles,
-    ) -> Result<Self::Source, anyhow::Error>;
+    ) -> Result<PreparedSampler, anyhow::Error>;
 }
 
 pub struct VirtualInstrument<T> {

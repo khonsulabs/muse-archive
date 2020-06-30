@@ -1,6 +1,6 @@
 use crate::{
     manager::{Manager, ManagerHandle, ManagerMessage, PlayingHandle},
-    sampler::Sampler,
+    sampler::PreparedSampler,
 };
 use cpal::traits::{DeviceTrait, HostTrait};
 use crossbeam::channel::bounded;
@@ -35,14 +35,13 @@ impl Device {
         }
     }
 
-    pub fn play<T: Sampler + 'static>(&self, sampler: T) -> Result<PlayingHandle, anyhow::Error> {
+    pub fn play(&self, sampler: PreparedSampler) -> Result<PlayingHandle, anyhow::Error> {
         let (callback, handle) = bounded(1);
         {
             let manager = self.manager.read().expect("Error reading manager");
-            manager.sender.send(ManagerMessage::Append {
-                sampler: Box::new(sampler),
-                callback,
-            })?;
+            manager
+                .sender
+                .send(ManagerMessage::Append { sampler, callback })?;
         }
 
         Ok(handle.recv()?)

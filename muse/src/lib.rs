@@ -3,6 +3,7 @@ pub mod device;
 pub mod envelope;
 pub mod instrument;
 pub mod manager;
+pub mod max;
 pub mod note;
 pub mod oscillators;
 pub mod pan;
@@ -13,6 +14,7 @@ pub use cpal;
 
 pub mod prelude {
     pub use super::{
-        amplify::*, cpal, envelope::*, instrument::*, note::*, oscillators::*, pan::*, parameter::*,
+        amplify::*, cpal, envelope::*, instrument::*, max::*, note::*, oscillators::*, pan::*,
+        parameter::*, sampler::*,
     };
 }
