@@ -154,11 +154,10 @@ impl From<u8> for Controller {
 pub struct TestInstrument {}
 
 impl ToneGenerator for TestInstrument {
-    type Source = Amplify;
     fn generate_tone(
         note: Note,
         controls: &mut ControlHandles,
-    ) -> Result<Self::Source, anyhow::Error> {
+    ) -> Result<PreparedSampler, anyhow::Error> {
         // A4 = 440hz, A4 = 69
         let frequency = note.hertz();
         println!("Playing {}", note);
@@ -172,15 +171,14 @@ impl ToneGenerator for TestInstrument {
             .release(EnvelopeCurve::Timed(Duration::from_millis(50)))
             .build()?;
 
-        let wave = Pan::new(
-            Parameter::Value(0.0),
-            Oscillator::<Sine>::new(frequency, envelope_config.as_parameter(controls)),
-        );
+        let wave = Max::new(vec![
+            Oscillator::<Sine>::new(frequency, envelope_config.as_parameter(controls)).prepare(),
+            Oscillator::<Square>::new(frequency, envelope_config.as_parameter(controls)).prepare(),
+        ]);
 
-        Ok(Amplify::new(
-            Parameter::Value(note.velocity as f32 / 127.0 * 0.4),
-            wave,
-        ))
+        let wave = Pan::new(Parameter::Value(0.0), wave);
+
+        Ok(Amplify::new(Parameter::Value(note.velocity as f32 / 127.0 * 0.4), wave).prepare())
     }
 }
 

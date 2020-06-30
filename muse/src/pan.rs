@@ -1,12 +1,12 @@
 use crate::{
     parameter::Parameter,
-    sampler::{Sample, Sampler},
+    sampler::{PreparableSampler, PreparedSampler, Sample, Sampler},
 };
 
 #[derive(Debug)]
 pub struct Pan {
     pan: Parameter,
-    source: Box<dyn Sampler + Send + Sync>,
+    source: PreparedSampler,
 }
 
 #[derive(Clone, Debug)]
@@ -16,10 +16,10 @@ struct PanFrame {
 }
 
 impl Pan {
-    pub fn new<T: Sampler + Send + Sync + 'static>(parameter: Parameter, source: T) -> Self {
+    pub fn new<T: PreparableSampler + 'static>(parameter: Parameter, source: T) -> Self {
         Self {
             pan: parameter,
-            source: Box::new(source),
+            source: source.prepare(),
         }
     }
 }
