@@ -80,3 +80,21 @@ impl std::ops::MulAssign<f32> for Sample {
         self.right *= rhs;
     }
 }
+
+impl std::ops::Mul<Sample> for Sample {
+    type Output = Self;
+
+    fn mul(self, rhs: Sample) -> Self::Output {
+        Self {
+            left: self.left * rhs.left,
+            right: self.right * rhs.right,
+        }
+    }
+}
+
+impl std::ops::MulAssign<Sample> for Sample {
+    fn mul_assign(&mut self, rhs: Sample) {
+        self.left *= rhs.left;
+        self.right *= rhs.right;
+    }
+}

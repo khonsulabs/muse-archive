@@ -172,14 +172,14 @@ impl ToneGenerator for TestInstrument {
             .build()?;
 
         let wave = if note.step < 60 {
-            Add::new(vec![
+            Multiply::new(vec![
                 Amplify::new(
-                    Parameter::Value(0.8),
+                    Parameter::Value(1.0),
                     Oscillator::<Sine>::new(frequency, envelope_config.as_parameter(controls)),
                 )
                 .prepare(),
                 Amplify::new(
-                    Parameter::Value(0.2),
+                    Parameter::Value(1.0),
                     Oscillator::<Triangle>::new(frequency, envelope_config.as_parameter(controls)),
                 )
                 .prepare(),
