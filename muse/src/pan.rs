@@ -16,7 +16,7 @@ struct PanFrame {
 }
 
 impl Pan {
-    pub fn new<T: PreparableSampler + 'static>(parameter: Parameter, source: T) -> Self {
+    pub fn new<T: PreparableSampler>(parameter: Parameter, source: T) -> Self {
         Self {
             pan: parameter,
             source: source.prepare(),
@@ -25,8 +25,8 @@ impl Pan {
 }
 
 impl Sampler for Pan {
-    fn sample(&mut self, sample_rate: u32) -> Option<Sample> {
-        if let Some(sample) = self.source.sample(sample_rate) {
+    fn sample(&mut self, sample_rate: u32, clock: usize) -> Option<Sample> {
+        if let Some(sample) = self.source.sample(sample_rate, clock) {
             if let Some(pan) = self.pan.next(sample_rate) {
                 return Some(Sample {
                     left: sample.left * (1. - pan),

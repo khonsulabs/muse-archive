@@ -1,3 +1,4 @@
+pub mod add;
 pub mod amplify;
 pub mod device;
 pub mod envelope;
@@ -14,7 +15,7 @@ pub use cpal;
 
 pub mod prelude {
     pub use super::{
-        amplify::*, cpal, envelope::*, instrument::*, max::*, note::*, oscillators::*, pan::*,
-        parameter::*, sampler::*,
+        add::*, amplify::*, cpal, envelope::*, instrument::*, max::*, note::*, oscillators::*,
+        pan::*, parameter::*, sampler::*,
     };
 }

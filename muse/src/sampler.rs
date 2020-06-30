@@ -1,14 +1,27 @@
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default)]
 pub struct Sample {
     pub left: f32,
     pub right: f32,
 }
 
 pub trait Sampler: Send + Sync + std::fmt::Debug {
-    fn sample(&mut self, sample_rate: u32) -> Option<Sample>;
+    fn sample(&mut self, sample_rate: u32, clock: usize) -> Option<Sample>;
 }
 
-pub type PreparedSampler = Box<dyn Sampler + Send + Sync + 'static>;
+#[derive(Debug)]
+pub struct PreparedSampler(Box<dyn Sampler + Send + Sync + 'static>);
+
+impl Sampler for PreparedSampler {
+    fn sample(&mut self, sample_rate: u32, clock: usize) -> Option<Sample> {
+        self.0.sample(sample_rate, clock)
+    }
+}
+
+impl PreparedSampler {
+    pub fn new<T: Sampler + 'static>(sampler: T) -> Self {
+        Self(Box::new(sampler))
+    }
+}
 
 pub trait PreparableSampler {
     fn prepare(self) -> PreparedSampler;
@@ -16,12 +29,21 @@ pub trait PreparableSampler {
 
 impl<T> PreparableSampler for T
 where
-    T: Sampler + 'static,
+    T: Sampler + Send + Sync + 'static,
 {
     fn prepare(self) -> PreparedSampler {
-        Box::new(self)
+        PreparedSampler::new(self)
     }
 }
+
+// impl<T> PreparableSampler for Box<T>
+// where
+//     T: Sampler + Send + Sync + 'static,
+// {
+//     fn prepare(self) -> PreparedSampler {
+//         self
+//     }
+// }
 
 impl std::ops::Add<Sample> for Sample {
     type Output = Self;

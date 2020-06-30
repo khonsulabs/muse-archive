@@ -19,8 +19,8 @@ impl Amplify {
 }
 
 impl Sampler for Amplify {
-    fn sample(&mut self, sample_rate: u32) -> Option<Sample> {
-        if let Some(sample) = self.source.sample(sample_rate) {
+    fn sample(&mut self, sample_rate: u32, clock: usize) -> Option<Sample> {
+        if let Some(sample) = self.source.sample(sample_rate, clock) {
             if let Some(amplify) = self.amplify.next(sample_rate) {
                 return Some(sample * amplify);
             }

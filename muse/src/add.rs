@@ -1,17 +1,17 @@
 use crate::sampler::{PreparedSampler, Sample, Sampler};
 
 #[derive(Debug)]
-pub struct Max {
+pub struct Add {
     sources: Vec<PreparedSampler>,
 }
 
-impl Max {
+impl Add {
     pub fn new(sources: Vec<PreparedSampler>) -> Self {
         Self { sources }
     }
 }
 
-impl Sampler for Max {
+impl Sampler for Add {
     fn sample(&mut self, sample_rate: u32, clock: usize) -> Option<Sample> {
         let mut result: Option<Sample> = None;
         for sample in self
@@ -21,16 +21,7 @@ impl Sampler for Max {
         {
             result = result
                 .map(|mut existing| {
-                    existing.left = if sample.left > existing.left {
-                        sample.left
-                    } else {
-                        existing.left
-                    };
-                    existing.right = if sample.right > existing.right {
-                        sample.right
-                    } else {
-                        existing.right
-                    };
+                    existing += sample;
                     existing
                 })
                 .or(Some(sample))

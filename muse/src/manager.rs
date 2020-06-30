@@ -1,4 +1,4 @@
-use crate::sampler::{Sample, Sampler};
+use crate::sampler::{PreparedSampler, Sample, Sampler};
 use cpal::{
     traits::{EventLoopTrait, HostTrait},
     Sample as CpalSample,
@@ -11,7 +11,7 @@ use std::{sync::Arc, time::Duration};
 
 pub(crate) enum ManagerMessage {
     Append {
-        sampler: Box<dyn Sampler>,
+        sampler: PreparedSampler,
         callback: Sender<PlayingHandle>,
     },
 }
@@ -24,7 +24,7 @@ pub struct PlayingHandle(Arc<u64>);
 #[derive(Debug)]
 struct PlayingSound {
     handle: PlayingHandle,
-    sampler: Box<dyn Sampler>,
+    sampler: PreparedSampler,
     still_producing_values: bool,
 }
 
@@ -32,6 +32,7 @@ struct PlayingSound {
 pub struct Manager {
     playing_sounds: Vec<PlayingSound>,
     last_playing_sound_id: u64,
+    clock: usize,
     pub(crate) sender: Sender<ManagerMessage>,
     stream: cpal::StreamId,
 }
@@ -73,7 +74,13 @@ impl Manager {
             stream,
             playing_sounds: Vec::new(),
             last_playing_sound_id: 0,
+            clock: 0,
         }
+    }
+
+    fn increment_clock(&mut self) -> usize {
+        self.clock = self.clock.wrapping_add(1);
+        self.clock
     }
 }
 
@@ -178,9 +185,10 @@ impl CpalThread {
 
     fn next_sample(manager: &ManagerHandle, format: &cpal::Format) -> Sample {
         let mut manager = manager.write().expect("Error locking manager for sampling");
+        let clock = manager.increment_clock();
         let mut combined_sample = Sample::default();
         for sample in manager.playing_sounds.iter_mut().filter_map(|s| {
-            let sample = s.sampler.sample(format.sample_rate.0);
+            let sample = s.sampler.sample(format.sample_rate.0, clock);
             if sample.is_none() {
                 s.still_producing_values = false;
             }
