@@ -1,3 +1,10 @@
+pub mod add;
+pub mod amplify;
+pub mod max;
+pub mod multiply;
+pub mod oscillator;
+pub mod pan;
+
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Sample {
     pub left: f32,
@@ -97,4 +104,11 @@ impl std::ops::MulAssign<Sample> for Sample {
         self.left *= rhs.left;
         self.right *= rhs.right;
     }
+}
+
+pub mod prelude {
+    pub use super::{
+        add::*, amplify::*, max::*, multiply::*, oscillator::*, pan::*, PreparableSampler,
+        PreparedSampler, Sample, Sampler,
+    };
 }

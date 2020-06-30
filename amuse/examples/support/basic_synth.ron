@@ -1,0 +1,29 @@
+Instrument(
+    name: "Synth",
+    envelopes: {
+        "main-volume": (
+            attack: Milliseconds(500),
+            sustain: Percent(0.6),
+            release: Milliseconds(50),
+        )
+    }
+    nodes: {
+        "output": Amplify(
+            value: NoteVelocity,
+            input: "oscillators",
+        ),
+        "oscillators": Add(
+            inputs: [ "sine", "triangle" ],
+        )
+        "sine": Oscillator(
+            function: Sine,
+            frequency: NoteHertz,
+            amplitude: Envelope("main-volume"),
+        ),
+        "triangle": Oscillator(
+            function: Triangle,
+            frequency: NoteHertz,
+            amplitude: Envelope("main-volume"),
+        ),
+    }
+)

@@ -1,11 +1,16 @@
 use crate::{
-    device::Device, envelope::PlayingState, manager::PlayingHandle, note::Note,
+    envelope::PlayingState,
+    manager::{Device, PlayingHandle},
+    note::Note,
     sampler::PreparedSampler,
 };
 use std::{
     sync::{Arc, RwLock},
     time::Duration,
 };
+
+#[cfg(feature = "serialization")]
+pub mod serde;
 
 pub struct GeneratedTone<T> {
     pub source: T,

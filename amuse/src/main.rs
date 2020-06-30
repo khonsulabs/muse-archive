@@ -171,23 +171,18 @@ impl ToneGenerator for TestInstrument {
             .release(EnvelopeCurve::Timed(Duration::from_millis(50)))
             .build()?;
 
-        let wave = if note.step < 60 {
-            Multiply::new(vec![
-                Amplify::new(
-                    Parameter::Value(1.0),
-                    Oscillator::<Sine>::new(frequency, envelope_config.as_parameter(controls)),
-                )
-                .prepare(),
-                Amplify::new(
-                    Parameter::Value(1.0),
-                    Oscillator::<Triangle>::new(frequency, envelope_config.as_parameter(controls)),
-                )
-                .prepare(),
-            ])
-            .prepare()
-        } else {
-            Oscillator::<Triangle>::new(frequency, envelope_config.as_parameter(controls)).prepare()
-        };
+        let wave = Multiply::new(vec![
+            Amplify::new(
+                Parameter::Value(0.8),
+                Oscillator::<Sine>::new(frequency, envelope_config.as_parameter(controls)),
+            )
+            .prepare(),
+            Amplify::new(
+                Parameter::Value(1.2),
+                Oscillator::<Triangle>::new(frequency, envelope_config.as_parameter(controls)),
+            )
+            .prepare(),
+        ]);
 
         // let wave = Pan::new(Parameter::Value(0.0), wave);
 

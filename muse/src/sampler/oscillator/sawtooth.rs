@@ -17,7 +17,7 @@ impl OscillatorFunction for Sawtooth {
 #[cfg(test)]
 mod tests {
     use super::Sawtooth;
-    use crate::oscillators::OscillatorFunction;
+    use crate::sampler::oscillator::OscillatorFunction;
     use approx::assert_ulps_eq;
     use std::f32::consts::PI;
 

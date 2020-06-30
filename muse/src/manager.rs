@@ -8,6 +8,8 @@ use crossbeam::{
     sync::ShardedLock,
 };
 use std::{sync::Arc, time::Duration};
+mod device;
+pub use device::Device;
 
 pub(crate) enum ManagerMessage {
     Append {
@@ -223,4 +225,8 @@ impl CpalThread {
             }
         }
     }
+}
+
+pub mod prelude {
+    pub use super::{Device, Manager, ManagerHandle};
 }
