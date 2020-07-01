@@ -7,9 +7,11 @@ use crate::{
     note::Note,
     parameter::Parameter,
     sampler::{
+        add::Add,
         amplify::Amplify,
         multiply::Multiply,
         oscillator::{Oscillator, Sawtooth, Sine, Square, Triangle},
+        pan::Pan,
         PreparableSampler, PreparedSampler,
     },
 };
@@ -52,6 +54,13 @@ impl<'a> Context<'a> {
         }
     }
 
+    pub fn node_references(&mut self, names: &[String]) -> Result<Vec<PreparedSampler>, Error> {
+        names
+            .iter()
+            .map(|i| self.node_reference(i))
+            .collect::<Result<Vec<_>, _>>()
+    }
+
     pub(crate) fn node_instantiated(&mut self, name: &str, sampler: PreparedSampler) {
         self.nodes.insert(name.to_owned(), sampler);
     }
@@ -75,7 +84,6 @@ impl<T> NodeInstantiator for Node<T>
 where
     T: NodeInstantiator,
 {
-    #[inline]
     fn instantiate_node(
         &self,
         context: &mut Context<'_>,
@@ -106,14 +114,16 @@ where
 
                 Ok(sampler)
             }
-            Node::Multiply { inputs } => Ok(Multiply::new(
-                inputs
-                    .iter()
-                    .map(|i| context.node_reference(i))
-                    .collect::<Result<Vec<_>, _>>()?,
+            Node::Multiply { inputs } => {
+                Ok(Multiply::new(context.node_references(inputs)?).prepare())
+            }
+            Node::Amplify { value, input } => Ok(Amplify::new(
+                Parameter::from_serialization(value, context)?,
+                context.node_reference(input)?,
             )
             .prepare()),
-            Node::Amplify { value, input } => Ok(Amplify::new(
+            Node::Add { inputs } => Ok(Add::new(context.node_references(inputs)?).prepare()),
+            Node::Pan { value, input } => Ok(Pan::new(
                 Parameter::from_serialization(value, context)?,
                 context.node_reference(input)?,
             )

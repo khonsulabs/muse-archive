@@ -63,6 +63,13 @@ pub enum Node<T> {
     Multiply {
         inputs: Vec<String>,
     },
+    Add {
+        inputs: Vec<String>,
+    },
+    Pan {
+        value: Parameter,
+        input: String,
+    },
     Custom(T),
 }
 
