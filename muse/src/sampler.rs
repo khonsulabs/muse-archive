@@ -16,7 +16,7 @@ pub trait Sampler: Send + Sync + std::fmt::Debug {
 }
 
 #[derive(Debug)]
-pub struct PreparedSampler(Box<dyn Sampler + Send + Sync + 'static>);
+pub struct PreparedSampler(Box<dyn Sampler + 'static>);
 
 impl Sampler for PreparedSampler {
     fn sample(&mut self, sample_rate: u32, clock: usize) -> Option<Sample> {
@@ -36,7 +36,7 @@ pub trait PreparableSampler {
 
 impl<T> PreparableSampler for T
 where
-    T: Sampler + Send + Sync + 'static,
+    T: Sampler + 'static,
 {
     fn prepare(self) -> PreparedSampler {
         PreparedSampler::new(self)

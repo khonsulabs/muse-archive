@@ -18,13 +18,13 @@ lazy_static! {
 
 #[derive(Debug, Clone)]
 pub struct Oscillator<T> {
-    frequency: f32,
+    frequency: Parameter,
     amplitude: Parameter,
     _of: std::marker::PhantomData<T>,
 }
 
 impl<T> Oscillator<T> {
-    pub fn new(frequency: f32, amplitude: Parameter) -> Self {
+    pub fn new(frequency: Parameter, amplitude: Parameter) -> Self {
         Self {
             frequency,
             amplitude,
@@ -43,12 +43,13 @@ where
 {
     fn sample(&mut self, sample_rate: u32, clock: usize) -> Option<Sample> {
         let current_sample = clock as f32 / sample_rate as f32;
-        let value = current_sample * self.frequency * 2.0 * std::f32::consts::PI;
+        let frequency = self.frequency.next(sample_rate, clock)?;
+        let value = current_sample * frequency * 2.0 * std::f32::consts::PI;
         let value = value % (2.0 * PI);
         let sample = T::compute_sample(value);
 
         self.amplitude
-            .next(sample_rate)
+            .next(sample_rate, clock)
             .map(|amplification| Sample {
                 left: amplification * sample / 2.0,
                 right: amplification * sample / 2.0,

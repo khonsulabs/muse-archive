@@ -1,20 +1,22 @@
+#![enable(implicit_some)]
+
 Instrument(
     name: "Synth",
     envelopes: {
         "main-volume": (
             attack: Milliseconds(500),
-            sustain: Percent(0.6),
+            sustain: Sustain(0.6),
             release: Milliseconds(50),
         )
-    }
+    },
     nodes: {
         "output": Amplify(
             value: NoteVelocity,
             input: "oscillators",
         ),
-        "oscillators": Add(
+        "oscillators": Multiply(
             inputs: [ "sine", "triangle" ],
-        )
+        ),
         "sine": Oscillator(
             function: Sine,
             frequency: NoteHertz,
@@ -25,5 +27,5 @@ Instrument(
             frequency: NoteHertz,
             amplitude: Envelope("main-volume"),
         ),
-    }
+    },
 )

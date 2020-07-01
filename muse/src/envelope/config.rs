@@ -118,7 +118,7 @@ impl EnvelopeBuilder {
     }
 }
 
-#[derive(Default, Clone)]
+#[derive(Default, Clone, Debug)]
 pub struct EnvelopeConfiguration {
     pub attack: FlattenedCurve,
     pub hold: FlattenedCurve,
@@ -158,7 +158,6 @@ impl EnvelopeConfiguration {
         controls.push(is_playing.clone());
 
         let envelope = Envelope {
-            frame: 0,
             state: EnvelopeStage::Attack,
             last_value: None,
 
@@ -207,6 +206,24 @@ impl EnvelopeCurve {
                 .unwrap_or(carryover_value),
             _ => carryover_value,
         }
+    }
+}
+
+#[cfg(feature = "serialization")]
+use crate::instrument::serialization::{EnvelopeCurve as EnvelopeCurveSpec, Error};
+
+#[cfg(feature = "serialization")]
+impl EnvelopeCurve {
+    pub fn from_serialization(spec: &Option<EnvelopeCurveSpec>) -> Result<Option<Self>, Error> {
+        let parameter = match spec {
+            Some(EnvelopeCurveSpec::Milliseconds(millis)) => {
+                Some(EnvelopeCurve::Timed(Duration::from_millis(*millis as u64)))
+            }
+            Some(EnvelopeCurveSpec::Sustain(value)) => Some(EnvelopeCurve::Sustain(*value)),
+            None => None,
+        };
+
+        Ok(parameter)
     }
 }
 
