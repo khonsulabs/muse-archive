@@ -1,6 +1,7 @@
 use muse::instrument::serialization;
 use muse::prelude::*;
 use std::{
+    convert::TryInto,
     error::Error,
     io::{stdin, stdout, Write},
 };
@@ -152,7 +153,7 @@ impl From<u8> for Controller {
 }
 
 pub struct TestInstrument {
-    instrument: serialization::Instrument,
+    basic_synth: LoadedInstrument,
 }
 
 impl ToneGenerator for TestInstrument {
@@ -163,15 +164,17 @@ impl ToneGenerator for TestInstrument {
         note: Note,
         control: &mut InstrumentController<Self>,
     ) -> Result<PreparedSampler, anyhow::Error> {
-        Ok(control.instantiate(&self.instrument, note)?)
+        Ok(control.instantiate(&self.basic_synth, note)?)
     }
 }
 
 fn run() -> Result<(), Box<dyn Error>> {
     let mut input = String::new();
     let mut instrument = VirtualInstrument::new_with_default_output(TestInstrument {
-        instrument: ron::from_str(include_str!("support/basic_synth.ron"))
-            .expect("Error parsing ron"),
+        basic_synth: ron::from_str::<serialization::Instrument>(include_str!(
+            "support/basic_synth.ron"
+        ))?
+        .try_into()?,
     })?;
 
     let mut midi_in = MidiInput::new("midir reading input")?;

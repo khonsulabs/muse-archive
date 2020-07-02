@@ -1,4 +1,7 @@
-use crate::sampler::{PreparedSampler, Sample, Sampler};
+use crate::{
+    note::Note,
+    sampler::{PreparedSampler, Sample, Sampler},
+};
 use cpal::{
     traits::{EventLoopTrait, HostTrait},
     Sample as CpalSample,
@@ -13,6 +16,7 @@ pub use device::Device;
 
 pub(crate) enum ManagerMessage {
     Append {
+        note: Note,
         sampler: PreparedSampler,
         callback: Sender<PlayingHandle>,
     },
@@ -25,6 +29,7 @@ pub struct PlayingHandle(Arc<u64>);
 
 #[derive(Debug)]
 struct PlayingSound {
+    note: Note,
     handle: PlayingHandle,
     sampler: PreparedSampler,
     still_producing_values: bool,
@@ -113,7 +118,11 @@ impl ManagerThread {
 
     fn handle_incoming_messages(&mut self) -> Result<(), RecvTimeoutError> {
         match self.receiver.recv_timeout(Duration::from_millis(10)) {
-            Ok(ManagerMessage::Append { sampler, callback }) => {
+            Ok(ManagerMessage::Append {
+                note,
+                sampler,
+                callback,
+            }) => {
                 let handle = {
                     // Scope this write so that sending the handle across the callback doesn't happen while the lock is still held
                     let mut manager = self
@@ -124,6 +133,7 @@ impl ManagerThread {
 
                     let handle = PlayingHandle(Arc::new(manager.last_playing_sound_id));
                     manager.playing_sounds.push(PlayingSound {
+                        note,
                         handle: handle.clone(),
                         sampler,
                         still_producing_values: true,

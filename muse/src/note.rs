@@ -1,9 +1,9 @@
 pub use pitch_calc::{Letter, Octave, Step};
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Default)]
 pub struct Note {
     pub step: u8,
-    pub velocity: u8,
+    velocity: u8,
 }
 
 impl Note {
@@ -12,6 +12,10 @@ impl Note {
     }
     pub fn hertz(&self) -> f32 {
         pitch_calc::hz_from_step(self.step as f32)
+    }
+
+    pub fn velocity(&self) -> f32 {
+        self.velocity as f32 / 127.
     }
 }
 

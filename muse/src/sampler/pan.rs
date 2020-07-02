@@ -9,12 +9,6 @@ pub struct Pan {
     source: PreparedSampler,
 }
 
-#[derive(Clone, Debug)]
-struct PanFrame {
-    sample: Sample,
-    pan: f32,
-}
-
 impl Pan {
     pub fn new<T: PreparableSampler>(parameter: Parameter, source: T) -> Self {
         Self {

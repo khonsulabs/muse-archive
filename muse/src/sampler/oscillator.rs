@@ -39,7 +39,7 @@ pub trait OscillatorFunction: Send + Sync + std::fmt::Debug {
 
 impl<T> Sampler for Oscillator<T>
 where
-    T: OscillatorFunction,
+    T: OscillatorFunction + Clone + 'static,
 {
     fn sample(&mut self, sample_rate: u32, clock: usize) -> Option<Sample> {
         let current_sample = clock as f32 / sample_rate as f32;

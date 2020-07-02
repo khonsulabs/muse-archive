@@ -8,5 +8,12 @@ pub mod sampler;
 pub use cpal;
 
 pub mod prelude {
-    pub use super::{cpal, envelope::*, instrument::*, note::*, parameter::*, sampler::prelude::*};
+    pub use super::{
+        cpal,
+        envelope::*,
+        instrument::{loaded::LoadedInstrument, *},
+        note::*,
+        parameter::*,
+        sampler::prelude::*,
+    };
 }

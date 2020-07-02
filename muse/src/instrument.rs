@@ -1,14 +1,16 @@
 use crate::{
-    envelope::{EnvelopeBuilder, EnvelopeConfiguration, EnvelopeCurve, PlayingState},
+    envelope::PlayingState,
+    instrument::loaded::Instantiatable,
     manager::{Device, PlayingHandle},
     note::Note,
     sampler::PreparedSampler,
 };
 use std::{
-    collections::HashMap,
     sync::{Arc, RwLock},
     time::Duration,
 };
+
+pub mod loaded;
 
 #[cfg(feature = "serialization")]
 pub mod serialization;
@@ -35,67 +37,17 @@ impl<T> Default for InstrumentController<T> {
     }
 }
 
-impl<T> InstrumentController<T> {
-    #[cfg(feature = "serialization")]
+impl<T> InstrumentController<T>
+where
+    T: ToneGenerator,
+    T::CustomNodes: Instantiatable,
+{
     pub fn instantiate(
         &mut self,
-        instrument_spec: &serialization::Instrument,
+        sampler: &loaded::LoadedInstrument<T::CustomNodes>,
         note: Note,
     ) -> Result<PreparedSampler, serialization::Error> {
-        use serialization::node_instantiator::NodeInstantiator;
-        // TODO Creating envelopes should happen once, not over and over.
-        let envelopes = self.instantiate_envelopes(&instrument_spec.envelopes)?;
-        let mut context = serialization::node_instantiator::Context::new(
-            &note,
-            &mut self.control_handles,
-            &envelopes,
-        );
-
-        let mut nodes_to_load = instrument_spec.nodes.iter().collect::<Vec<_>>();
-        while !nodes_to_load.is_empty() {
-            let initial_len = nodes_to_load.len();
-            nodes_to_load.retain(|(name, node)| {
-                if let Ok(sampler) = node.instantiate_node(&mut context) {
-                    context.node_instantiated(name, sampler);
-                    // Handled, so we return false to free it
-                    false
-                } else {
-                    true
-                }
-            });
-
-            if initial_len == nodes_to_load.len() {
-                return Err(serialization::Error::RecursiveNodeDependencies(
-                    nodes_to_load.iter().map(|n| n.0.clone()).collect(),
-                ));
-            }
-        }
-
-        let output = context.node_reference("output")?;
-        // TODO Do we do anything to warn against unused nodes?
-        Ok(output)
-    }
-
-    fn instantiate_envelopes(
-        &mut self,
-        incoming: &HashMap<String, serialization::Envelope>,
-    ) -> Result<HashMap<String, EnvelopeConfiguration>, serialization::Error> {
-        incoming
-            .iter()
-            .map(|(name, env)| {
-                Ok((
-                    name.to_owned(),
-                    EnvelopeBuilder {
-                        attack: EnvelopeCurve::from_serialization(&env.attack)?,
-                        hold: EnvelopeCurve::from_serialization(&env.hold)?,
-                        decay: EnvelopeCurve::from_serialization(&env.decay)?,
-                        sustain: EnvelopeCurve::from_serialization(&env.sustain)?,
-                        release: EnvelopeCurve::from_serialization(&env.release)?,
-                    }
-                    .build()?,
-                ))
-            })
-            .collect::<Result<_, serialization::Error>>()
+        Ok(sampler.instantiate(&note, &mut self.control_handles))
     }
 }
 
@@ -117,7 +69,7 @@ pub struct PlayingNote<T> {
 
 impl<T> PlayingNote<T> {
     fn is_playing(&self) -> bool {
-        for control in self.controller.control_handles.iter() {
+        for control in &self.controller.control_handles {
             let value = control.read().unwrap();
             if let PlayingState::Playing = *value {
                 return true;
@@ -128,14 +80,14 @@ impl<T> PlayingNote<T> {
     }
 
     fn stop(&self) {
-        for control in self.controller.control_handles.iter() {
+        for control in &self.controller.control_handles {
             let mut value = control.write().unwrap();
             *value = PlayingState::Stopping;
         }
     }
 
     fn sustain(&self) {
-        for control in self.controller.control_handles.iter() {
+        for control in &self.controller.control_handles {
             let mut value = control.write().unwrap();
             *value = PlayingState::Sustaining;
         }
@@ -207,7 +159,7 @@ where
 
         let mut controller = InstrumentController::default();
         let source = self.tone_generator.generate_tone(note, &mut controller)?;
-        let handle = Some(self.device.play(source)?);
+        let handle = Some(self.device.play(source, note)?);
 
         self.playing_notes.push(PlayingNote {
             note,

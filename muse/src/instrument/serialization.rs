@@ -37,7 +37,7 @@ pub struct Envelope {
 pub enum EnvelopeCurve {
     Milliseconds(u32),
     Sustain(f32),
-    // TODO add bezier curves
+    // https://github.com/khonsulabs/muse/issues/16
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -73,7 +73,7 @@ pub enum Node<T> {
     Custom(T),
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, Copy)]
 pub enum OscillatorFunction {
     Sawtooth,
     Sine,

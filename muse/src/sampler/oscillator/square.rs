@@ -1,7 +1,7 @@
 use super::OscillatorFunction;
 use std::f32::consts::PI;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Square {}
 
 impl OscillatorFunction for Square {

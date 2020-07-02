@@ -11,14 +11,6 @@ Instrument(
     },
     nodes: {
         "output": Amplify(
-            value: Value(0.1),
-            input: "pan-right",
-        ),
-        "pan-right": Pan(
-            value: Value(1.0),
-            input: "velocity-amp",
-        ),
-        "velocity-amp": Amplify(
             value: NoteVelocity,
             input: "oscillators",
         ),

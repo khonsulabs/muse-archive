@@ -1,5 +1,6 @@
 use crate::{
     manager::{Manager, ManagerHandle, ManagerMessage, PlayingHandle},
+    note::Note,
     sampler::PreparedSampler,
 };
 use cpal::traits::{DeviceTrait, HostTrait};
@@ -35,13 +36,19 @@ impl Device {
         }
     }
 
-    pub fn play(&self, sampler: PreparedSampler) -> Result<PlayingHandle, anyhow::Error> {
+    pub fn play(
+        &self,
+        sampler: PreparedSampler,
+        note: Note,
+    ) -> Result<PlayingHandle, anyhow::Error> {
         let (callback, handle) = bounded(1);
         {
             let manager = self.manager.read().expect("Error reading manager");
-            manager
-                .sender
-                .send(ManagerMessage::Append { sampler, callback })?;
+            manager.sender.send(ManagerMessage::Append {
+                note,
+                sampler,
+                callback,
+            })?;
         }
 
         Ok(handle.recv()?)
