@@ -1,95 +1,116 @@
-use crossbeam::channel::Receiver;
-use iced_native::{futures, subscription::Recipe};
+use crossbeam::channel::{unbounded, Receiver, Sender};
 use midir::{Ignore, MidiInput, MidiInputConnection};
+use once_cell::sync::Lazy;
+use std::{
+    collections::HashMap,
+    sync::{Arc, RwLock},
+    time::Duration,
+};
 
-pub enum MIDIControl {
-    RefreshInputList,
-    SetInput(String),
+mod message;
+pub use message::{ChannelMessage, Controller, Message};
+
+static INPUT_MANAGER: Lazy<Arc<RwLock<Option<InputManager>>>> =
+    Lazy::new(|| Arc::new(RwLock::new(None)));
+
+pub fn open_input() -> Receiver<Message> {
+    open_named_input("amuse")
 }
 
-pub struct MIDI {
-    control: Receiver<MIDIControl>,
-    midi_in: MidiInput,
-}
+pub fn open_named_input<S: ToString>(app_name: S) -> Receiver<Message> {
+    let app_name = app_name.to_string();
 
-impl MIDI {
-    pub fn new(control: Receiver<MIDIControl>) -> Result<Self, midir::InitError> {
-        let mut midi = Self {
-            control,
-            midi_in: MidiInput::new("amuse")?,
-        };
-        midi.midi_in.ignore(Ignore::None);
-        Ok(midi)
+    let mut manager = INPUT_MANAGER
+        .write()
+        .expect("Error locking global input manager");
+    if let Some(manager) = manager.as_ref() {
+        return manager.receiver.clone();
     }
 
-    pub fn set_current_input(&mut self, index: usize) {
-        if let Some(Some(name)) = &self
-            .available_inputs
-            .as_ref()
-            .map(|names| names.get(index).map(|n| n.to_owned()))
-        {
-            if let Some(port) = self
-                .midi_in
-                .ports()
-                .iter()
-                .find(|p| &self.midi_in.port_name(p).unwrap_or_default() == name)
-            {
-                if let Some(existing_input) = self.current_input.as_ref() {
-                    existing_input.close();
-                }
-                self.current_input = Some(
-                    self.midi_in
-                        .connect(port, name, move |a, b, _| {}, ())
-                        .unwrap(),
-                )
-            }
-        }
+    let (sender, receiver) = unbounded();
+
+    *manager = Some(InputManager {
+        receiver: receiver.clone(),
+    });
+
+    std::thread::spawn(move || {
+        input_thread(app_name, sender).expect("Error processing MIDI input")
+    });
+
+    receiver
+}
+
+type InputConnections = HashMap<String, MidiInputConnection<Sender<Message>>>;
+
+pub struct InputManager {
+    receiver: Receiver<Message>,
+}
+
+fn input_thread(app_name: String, sender: Sender<Message>) -> Result<(), anyhow::Error> {
+    let mut connected_ports = InputConnections::new();
+    loop {
+        // Find any ports to connect to
+        let _ = connect_to_available_inputs(&app_name, &sender, &mut connected_ports);
+
+        std::thread::sleep(Duration::from_secs(1));
     }
 }
 
-#[derive(Debug, Clone)]
-pub enum MIDIMessage {
-    InputsListed(Vec<String>),
-}
+fn connect_to_available_inputs(
+    app_name: &str,
+    sender: &Sender<Message>,
+    open_ports: &mut InputConnections,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let mut input = MidiInput::new(app_name)?;
+    input.ignore(Ignore::None);
 
-pub enum State {
-    New,
-    Initialized,
-    Connected(MidiInputConnection<()>),
-}
+    // Identify ports that can be opened
+    // Keep track of ports that error when they are opened
+    let port_names_to_try = {
+        input
+            .ports()
+            .into_iter()
+            .filter_map(|p| input.port_name(&p).ok().map(|name| name))
+            .filter(|name| !open_ports.contains_key(name))
+            .collect::<Vec<_>>()
+    };
 
-impl<H, I> Recipe<H, I> for MIDI
-where
-    H: std::hash::Hasher,
-{
-    type Output = MIDIMessage;
-
-    fn hash(&self, state: &mut H) {
-        use std::hash::Hash;
-        std::any::TypeId::of::<Self>().hash(state);
+    for port_name in port_names_to_try {
+        connect_to_input(app_name, port_name, &sender, open_ports)?;
     }
 
-    fn stream(
-        self: Box<Self>,
-        _input: futures::stream::BoxStream<'static, I>,
-    ) -> futures::stream::BoxStream<'static, Self::Output> {
-        Box::pin(futures::stream::unfold(State::New, |state| async move {
-            // TODO Read control events...
-            match state {
-                State::New => {
-                    let inputs = self
-                        .midi_in
-                        .ports()
-                        .iter()
-                        .filter_map(|p| self.midi_in.port_name(p).ok())
-                        .collect();
-                    (MIDIMessage::InputsListed(inputs), State::Initialized)
-                }
-                State::Initialized => {
-                    
-                }
-                State::Connected(connection) => {}
-            }
-        }))
+    Ok(())
+}
+
+fn connect_to_input(
+    app_name: &str,
+    port_name: String,
+    sender: &Sender<Message>,
+    open_ports: &mut InputConnections,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let mut input = MidiInput::new(app_name)?;
+    input.ignore(Ignore::None);
+    if let Some(port) = input
+        .ports()
+        .into_iter()
+        .find(|p| input.port_name(&p).unwrap_or_default() == port_name)
+    {
+        let connection = input.connect(
+            &port,
+            &app_name,
+            move |_, message, sender| handle_message(message, sender),
+            sender.clone(),
+        )?;
+
+        open_ports.insert(port_name, connection);
+    }
+
+    Ok(())
+}
+
+fn handle_message(message: &[u8], sender: &Sender<Message>) {
+    if !message.is_empty() {
+        let message = Message::from(message);
+        sender.send(message).unwrap();
     }
 }
