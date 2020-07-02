@@ -1,3 +1,16 @@
+mod add;
+mod amplify;
+mod max;
+mod multiply;
+mod oscillator;
+mod pan;
+pub use add::*;
+pub use amplify::*;
+pub use max::*;
+pub use multiply::*;
+pub use oscillator::*;
+pub use pan::*;
+
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Sample {
     pub left: f32,
@@ -9,7 +22,7 @@ pub trait Sampler: Send + Sync + std::fmt::Debug {
 }
 
 #[derive(Debug)]
-pub struct PreparedSampler(Box<dyn Sampler + Send + Sync + 'static>);
+pub struct PreparedSampler(Box<dyn Sampler + 'static>);
 
 impl Sampler for PreparedSampler {
     fn sample(&mut self, sample_rate: u32, clock: usize) -> Option<Sample> {
@@ -29,21 +42,12 @@ pub trait PreparableSampler {
 
 impl<T> PreparableSampler for T
 where
-    T: Sampler + Send + Sync + 'static,
+    T: Sampler + 'static,
 {
     fn prepare(self) -> PreparedSampler {
         PreparedSampler::new(self)
     }
 }
-
-// impl<T> PreparableSampler for Box<T>
-// where
-//     T: Sampler + Send + Sync + 'static,
-// {
-//     fn prepare(self) -> PreparedSampler {
-//         self
-//     }
-// }
 
 impl std::ops::Add<Sample> for Sample {
     type Output = Self;
@@ -79,4 +83,29 @@ impl std::ops::MulAssign<f32> for Sample {
         self.left *= rhs;
         self.right *= rhs;
     }
+}
+
+impl std::ops::Mul<Sample> for Sample {
+    type Output = Self;
+
+    fn mul(self, rhs: Sample) -> Self::Output {
+        Self {
+            left: self.left * rhs.left,
+            right: self.right * rhs.right,
+        }
+    }
+}
+
+impl std::ops::MulAssign<Sample> for Sample {
+    fn mul_assign(&mut self, rhs: Sample) {
+        self.left *= rhs.left;
+        self.right *= rhs.right;
+    }
+}
+
+pub mod prelude {
+    pub use super::{
+        add::*, amplify::*, max::*, multiply::*, oscillator::*, pan::*, PreparableSampler,
+        PreparedSampler, Sample, Sampler,
+    };
 }

@@ -111,21 +111,21 @@ pub struct EnvelopeSegment {
 }
 
 impl EnvelopeSegment {
-    pub fn frames_for_sample_rate(&self, sample_rate: u32) -> u32 {
-        (self.duration * sample_rate as f32) as u32
+    pub fn frames_for_sample_rate(&self, sample_rate: u32) -> usize {
+        (self.duration * sample_rate as f32) as usize
     }
 }
 
 #[derive(Debug, Clone)]
 pub struct EnvelopeCurveInstance {
     segments: Arc<Vec<EnvelopeSegment>>,
-    start_frame: Option<u32>,
-    start_frame_offset: Option<u32>,
+    start_frame: Option<usize>,
+    start_frame_offset: Option<usize>,
     segment: Option<usize>,
 }
 
 impl EnvelopeCurveInstance {
-    pub fn advance(&mut self, current_frame: u32, sample_rate: u32) -> Option<f32> {
+    pub fn advance(&mut self, current_frame: usize, sample_rate: u32) -> Option<f32> {
         let start_frame = match self.start_frame {
             Some(frame) => frame,
             None => {
@@ -187,7 +187,7 @@ impl EnvelopeCurveInstance {
             let value_ratio = relative_value / segment_value_delta;
             let segment_frames = containing_segment.frames_for_sample_rate(sample_rate);
 
-            self.start_frame_offset = Some((value_ratio * segment_frames as f32) as u32);
+            self.start_frame_offset = Some((value_ratio * segment_frames as f32) as usize);
             println!(
                 "jump_to: svd {} rv {} vr {}, sf {}, off {:?}",
                 segment_value_delta,

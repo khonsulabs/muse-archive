@@ -1,11 +1,20 @@
 use crate::{
-    device::Device, envelope::PlayingState, manager::PlayingHandle, note::Note,
+    envelope::PlayingState,
+    instrument::loaded::Instantiatable,
+    manager::{Device, PlayingHandle},
+    note::Note,
     sampler::PreparedSampler,
 };
 use std::{
     sync::{Arc, RwLock},
     time::Duration,
 };
+
+mod loaded;
+pub use loaded::*;
+
+#[cfg(feature = "serialization")]
+pub mod serialization;
 
 pub struct GeneratedTone<T> {
     pub source: T,
@@ -14,29 +23,54 @@ pub struct GeneratedTone<T> {
 
 pub type ControlHandles = Vec<Arc<RwLock<PlayingState>>>;
 
-pub trait ToneGenerator: Sized {
-    fn generate_tone(
+#[derive(Debug)]
+pub struct InstrumentController<T> {
+    pub control_handles: ControlHandles,
+    _tone_generator: std::marker::PhantomData<T>,
+}
+
+impl<T> Default for InstrumentController<T> {
+    fn default() -> Self {
+        Self {
+            control_handles: ControlHandles::new(),
+            _tone_generator: std::marker::PhantomData::default(),
+        }
+    }
+}
+
+impl<T> InstrumentController<T>
+where
+    T: ToneGenerator,
+    T::CustomNodes: Instantiatable,
+{
+    pub fn instantiate(
+        &mut self,
+        sampler: &loaded::LoadedInstrument<T::CustomNodes>,
         note: Note,
-        controls: &mut ControlHandles,
+    ) -> Result<PreparedSampler, serialization::Error> {
+        Ok(sampler.instantiate(&note, &mut self.control_handles))
+    }
+}
+
+pub trait ToneGenerator: Sized {
+    type CustomNodes;
+
+    fn generate_tone(
+        &mut self,
+        note: Note,
+        control: &mut InstrumentController<Self>,
     ) -> Result<PreparedSampler, anyhow::Error>;
 }
 
-pub struct VirtualInstrument<T> {
-    playing_notes: Vec<PlayingNote>,
-    device: Device,
-    sustain: bool,
-    _phantom: std::marker::PhantomData<T>,
-}
-
-pub struct PlayingNote {
+pub struct PlayingNote<T> {
     note: Note,
     handle: Option<PlayingHandle>,
-    controls: Vec<Arc<RwLock<PlayingState>>>,
+    controller: InstrumentController<T>,
 }
 
-impl PlayingNote {
+impl<T> PlayingNote<T> {
     fn is_playing(&self) -> bool {
-        for control in self.controls.iter() {
+        for control in &self.controller.control_handles {
             let value = control.read().unwrap();
             if let PlayingState::Playing = *value {
                 return true;
@@ -47,30 +81,30 @@ impl PlayingNote {
     }
 
     fn stop(&self) {
-        for control in self.controls.iter() {
+        for control in &self.controller.control_handles {
             let mut value = control.write().unwrap();
             *value = PlayingState::Stopping;
         }
     }
 
     fn sustain(&self) {
-        for control in self.controls.iter() {
+        for control in &self.controller.control_handles {
             let mut value = control.write().unwrap();
             *value = PlayingState::Sustaining;
         }
     }
 }
 
-impl Drop for PlayingNote {
+impl<T> Drop for PlayingNote<T> {
     fn drop(&mut self) {
         self.stop();
 
         let handle = std::mem::take(&mut self.handle);
-        let controls = std::mem::take(&mut self.controls);
+        let control_handles = std::mem::take(&mut self.controller.control_handles);
 
         std::thread::spawn(move || loop {
             {
-                let all_stopped = controls
+                let all_stopped = control_handles
                     .iter()
                     .map(|control| {
                         let value = control.read().unwrap();
@@ -95,41 +129,43 @@ pub enum Loudness {
     Pianissimo,
 }
 
-impl<T> Default for VirtualInstrument<T>
-where
-    T: ToneGenerator,
-{
-    fn default() -> Self {
-        let device = Device::default_output().expect("No default audio output device");
-        Self::new(device)
-    }
+pub struct VirtualInstrument<T> {
+    playing_notes: Vec<PlayingNote<T>>,
+    device: Device,
+    sustain: bool,
+    tone_generator: T,
 }
 
 impl<T> VirtualInstrument<T>
 where
     T: ToneGenerator,
 {
-    pub fn new(device: Device) -> Self {
+    pub fn new(device: Device, tone_generator: T) -> Self {
         Self {
             device,
+            tone_generator,
             playing_notes: Vec::new(),
             sustain: false,
-            _phantom: std::marker::PhantomData::default(),
         }
+    }
+
+    pub fn new_with_default_output(tone_generator: T) -> Result<Self, anyhow::Error> {
+        let device = Device::default_output()?;
+        Ok(Self::new(device, tone_generator))
     }
 
     pub fn play_note(&mut self, note: Note) -> Result<(), anyhow::Error> {
         // We need to re-tone the note, so we'll get rid of the existing notes
         self.playing_notes.retain(|n| n.note.step != note.step);
 
-        let mut controls = ControlHandles::new();
-        let source = T::generate_tone(note, &mut controls)?;
-        let handle = Some(self.device.play(source)?);
+        let mut controller = InstrumentController::default();
+        let source = self.tone_generator.generate_tone(note, &mut controller)?;
+        let handle = Some(self.device.play(source, note)?);
 
         self.playing_notes.push(PlayingNote {
             note,
             handle,
-            controls,
+            controller,
         });
 
         Ok(())

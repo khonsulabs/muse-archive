@@ -1,8 +1,15 @@
-use muse::prelude::*;
+use muse::{
+    instrument::{
+        serialization, InstrumentController, LoadedInstrument, ToneGenerator, VirtualInstrument,
+    },
+    sampler::PreparedSampler,
+    Note,
+};
+
 use std::{
+    convert::TryInto,
     error::Error,
     io::{stdin, stdout, Write},
-    time::Duration,
 };
 
 use midir::{Ignore, MidiInput};
@@ -151,53 +158,30 @@ impl From<u8> for Controller {
     }
 }
 
-pub struct TestInstrument {}
+pub struct TestInstrument {
+    basic_synth: LoadedInstrument,
+}
 
 impl ToneGenerator for TestInstrument {
+    type CustomNodes = ();
+
     fn generate_tone(
+        &mut self,
         note: Note,
-        controls: &mut ControlHandles,
+        control: &mut InstrumentController<Self>,
     ) -> Result<PreparedSampler, anyhow::Error> {
-        // A4 = 440hz, A4 = 69
-        let frequency = note.hertz();
-        println!("Playing {}", note);
-
-        // create some filters
-
-        let envelope_config = EnvelopeBuilder::default()
-            .attack(EnvelopeCurve::Timed(Duration::from_millis(50)))
-            .decay(EnvelopeCurve::Timed(Duration::from_millis(100)))
-            .sustain(EnvelopeCurve::Sustain(0.5))
-            .release(EnvelopeCurve::Timed(Duration::from_millis(50)))
-            .build()?;
-
-        let wave = if note.step < 60 {
-            Add::new(vec![
-                Amplify::new(
-                    Parameter::Value(0.8),
-                    Oscillator::<Sine>::new(frequency, envelope_config.as_parameter(controls)),
-                )
-                .prepare(),
-                Amplify::new(
-                    Parameter::Value(0.2),
-                    Oscillator::<Triangle>::new(frequency, envelope_config.as_parameter(controls)),
-                )
-                .prepare(),
-            ])
-            .prepare()
-        } else {
-            Oscillator::<Triangle>::new(frequency, envelope_config.as_parameter(controls)).prepare()
-        };
-
-        // let wave = Pan::new(Parameter::Value(0.0), wave);
-
-        Ok(Amplify::new(Parameter::Value(note.velocity as f32 / 127.0), wave).prepare())
+        Ok(control.instantiate(&self.basic_synth, note)?)
     }
 }
 
 fn run() -> Result<(), Box<dyn Error>> {
     let mut input = String::new();
-    let mut instrument = VirtualInstrument::<TestInstrument>::default();
+    let mut instrument = VirtualInstrument::new_with_default_output(TestInstrument {
+        basic_synth: ron::from_str::<serialization::Instrument>(include_str!(
+            "support/basic_synth.ron"
+        ))?
+        .try_into()?,
+    })?;
 
     let mut midi_in = MidiInput::new("midir reading input")?;
     midi_in.ignore(Ignore::None);
