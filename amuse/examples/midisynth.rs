@@ -2,8 +2,8 @@ use muse::{
     instrument::{
         serialization, InstrumentController, LoadedInstrument, ToneGenerator, VirtualInstrument,
     },
-    note::Note,
     sampler::PreparedSampler,
+    Note,
 };
 
 use std::{

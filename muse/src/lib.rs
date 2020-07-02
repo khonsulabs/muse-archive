@@ -1,7 +1,8 @@
 pub mod envelope;
 pub mod instrument;
 pub mod manager;
-pub mod note;
+mod note;
+pub use note::*;
 pub mod parameter;
 pub mod sampler;
 
