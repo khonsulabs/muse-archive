@@ -16,7 +16,7 @@ lazy_static! {
     static ref STARTUP_INSTANT: Instant = Instant::now();
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct Oscillator<T> {
     frequency: Parameter,
     amplitude: Parameter,
@@ -39,7 +39,7 @@ pub trait OscillatorFunction: Send + Sync + std::fmt::Debug {
 
 impl<T> Sampler for Oscillator<T>
 where
-    T: OscillatorFunction + Clone + 'static,
+    T: OscillatorFunction + 'static,
 {
     fn sample(&mut self, sample_rate: u32, clock: usize) -> Option<Sample> {
         let current_sample = clock as f32 / sample_rate as f32;

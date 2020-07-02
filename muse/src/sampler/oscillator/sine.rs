@@ -1,6 +1,6 @@
 use super::OscillatorFunction;
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct Sine {}
 
 impl OscillatorFunction for Sine {

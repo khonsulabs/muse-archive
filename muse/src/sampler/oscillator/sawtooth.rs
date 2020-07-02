@@ -1,7 +1,7 @@
 use super::OscillatorFunction;
 use std::f32::consts::PI;
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct Sawtooth {}
 
 impl OscillatorFunction for Sawtooth {
