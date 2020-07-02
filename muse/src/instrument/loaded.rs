@@ -7,12 +7,8 @@ use crate::{
     note::Note,
     parameter,
     sampler::{
-        add::Add,
-        amplify::Amplify,
-        multiply::Multiply,
-        oscillator::{Oscillator, Sawtooth, Sine, Square, Triangle},
-        pan::Pan,
-        PreparableSampler, PreparedSampler,
+        Add, Amplify, Multiply, Oscillator, Pan, PreparableSampler, PreparedSampler, Sawtooth,
+        Sine, Square, Triangle,
     },
 };
 use std::{collections::HashMap, convert::TryFrom};
@@ -57,17 +53,17 @@ impl<T> LoadedInstrument<T> {
 #[cfg(feature = "serialization")]
 impl<T> TryFrom<serialization::Instrument<T>> for LoadedInstrument<T>
 where
-    T: serialization::node_instantiator::NodeInstantiator<T>,
+    T: serialization::NodeInstantiator<T>,
 {
     type Error = serialization::Error;
     fn try_from(
         instrument_spec: serialization::Instrument<T>,
     ) -> Result<LoadedInstrument<T>, Self::Error> {
-        use serialization::node_instantiator::NodeInstantiator;
+        use serialization::NodeInstantiator;
 
         let envelopes = Self::instantiate_envelopes(&instrument_spec.envelopes)?;
 
-        let mut context = serialization::node_instantiator::Context::new(&envelopes);
+        let mut context = serialization::Context::new(&envelopes);
 
         let mut nodes_to_load = instrument_spec.nodes.iter().collect::<Vec<_>>();
         while !nodes_to_load.is_empty() {

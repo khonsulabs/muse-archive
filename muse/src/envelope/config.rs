@@ -1,5 +1,7 @@
-// TODO BAD JON
-use super::{curve::*, Envelope, EnvelopeStage, PlayingState};
+use super::{
+    curve::{EnvelopeCurveError, EnvelopeSegment, FlattenedCurve},
+    Envelope, EnvelopeStage, PlayingState,
+};
 use crate::{instrument::ControlHandles, parameter::Parameter};
 use kurbo::BezPath;
 use std::{
@@ -128,31 +130,6 @@ pub struct EnvelopeConfiguration {
 }
 
 impl EnvelopeConfiguration {
-    // pub fn envelop<T: Source<Item = f32>>(
-    //     &self,
-    //     source: T,
-    // ) -> (Envelope<T>, Arc<RwLock<PlayingState>>) {
-    //     let is_playing = Arc::new(RwLock::new(PlayingState::Playing));
-    //     let is_playing_handle = is_playing.clone();
-
-    //     let envelope = Envelope {
-    //         frame: 0,
-    //         state: EnvelopeStage::Attack,
-    //         last_value: None,
-
-    //         attack: self.attack.instantiate(),
-    //         hold: self.hold.instantiate(),
-    //         decay: self.decay.instantiate(),
-    //         sustain: self.sustain.instantiate(),
-    //         release: self.release.instantiate(),
-
-    //         source,
-    //         is_playing,
-    //     };
-
-    //     (envelope, is_playing_handle)
-    // }
-
     pub fn as_parameter(&self, controls: &mut ControlHandles) -> Parameter {
         let is_playing = Arc::new(RwLock::new(PlayingState::Playing));
         controls.push(is_playing.clone());
@@ -187,16 +164,6 @@ pub enum EnvelopeCurve {
 }
 
 impl EnvelopeCurve {
-    // pub fn extents(&self, default_min: f32, default_max: f32) -> (f32, f32) {
-    //     match self {
-    //         Self::Curve(curve) => (
-    //             curve.segments.get(0).map(|s| s.start_value),
-    //             curve.segments.last().map(|s| s.end_value),
-    //         ),
-    //         Self::Timed(_) => (None, None),
-    //         Self::Sustain()
-    //     }
-    // }
     pub fn terminal_value(&self, carryover_value: f32) -> f32 {
         match self {
             Self::Curve(curve) => curve

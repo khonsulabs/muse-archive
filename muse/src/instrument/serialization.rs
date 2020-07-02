@@ -1,7 +1,8 @@
 use serde_derive::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-pub mod node_instantiator;
+mod loader;
+pub use loader::*;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {

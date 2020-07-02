@@ -1,9 +1,15 @@
-pub mod add;
-pub mod amplify;
-pub mod max;
-pub mod multiply;
-pub mod oscillator;
-pub mod pan;
+mod add;
+mod amplify;
+mod max;
+mod multiply;
+mod oscillator;
+mod pan;
+pub use add::*;
+pub use amplify::*;
+pub use max::*;
+pub use multiply::*;
+pub use oscillator::*;
+pub use pan::*;
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Sample {
@@ -42,15 +48,6 @@ where
         PreparedSampler::new(self)
     }
 }
-
-// impl<T> PreparableSampler for Box<T>
-// where
-//     T: Sampler + Send + Sync + 'static,
-// {
-//     fn prepare(self) -> PreparedSampler {
-//         self
-//     }
-// }
 
 impl std::ops::Add<Sample> for Sample {
     type Output = Self;

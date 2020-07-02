@@ -3,9 +3,8 @@ use std::sync::{Arc, RwLock};
 mod config;
 mod curve;
 pub use config::{CurveBuilder, EnvelopeBuilder, EnvelopeConfiguration, EnvelopeCurve, Point};
+use curve::EnvelopeCurveInstance;
 pub use curve::{EnvelopeCurveError, FlattenedCurve};
-// TODO BAD JON
-use curve::*;
 
 #[derive(Debug, Clone, Copy)]
 pub enum EnvelopeStage {

@@ -100,21 +100,13 @@ where
                 frequency: context.load_parameter(frequency)?,
                 amplitude: context.load_parameter(amplitude)?,
             }),
-            Node::Multiply { inputs } => {
-                Ok(loaded::Node::Multiply {
-                    inputs: context.node_references(inputs)?,
-                })
-                //Ok(Multiply::new(context.node_references(inputs)?).prepare())
-            }
+            Node::Multiply { inputs } => Ok(loaded::Node::Multiply {
+                inputs: context.node_references(inputs)?,
+            }),
             Node::Amplify { value, input } => Ok(loaded::Node::Amplify {
                 value: context.load_parameter(value)?,
                 input: Box::new(context.node_reference(input)?),
             }),
-            // Ok(Amplify::new(
-            //     Parameter::from_serialization(value, context)?,
-            //     context.node_reference(input)?,
-            // )
-            // .prepare()),
             Node::Add { inputs } => Ok(loaded::Node::Add {
                 inputs: context.node_references(inputs)?,
             }),
@@ -122,11 +114,6 @@ where
                 value: context.load_parameter(value)?,
                 input: Box::new(context.node_reference(input)?),
             }),
-            // Ok(Pan::new(
-            //     Parameter::from_serialization(value, context)?,
-            //     context.node_reference(input)?,
-            // )
-            // .prepare()),
             Node::Custom(custom) => custom.instantiate_node(context),
         }
     }

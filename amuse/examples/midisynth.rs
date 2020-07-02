@@ -1,5 +1,11 @@
-use muse::instrument::serialization;
-use muse::prelude::*;
+use muse::{
+    instrument::{
+        serialization, InstrumentController, LoadedInstrument, ToneGenerator, VirtualInstrument,
+    },
+    note::Note,
+    sampler::PreparedSampler,
+};
+
 use std::{
     convert::TryInto,
     error::Error,
