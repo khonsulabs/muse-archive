@@ -1,8 +1,7 @@
 use amuse::midi::{ChannelMessage, Controller, Message};
 use muse::{
-    instrument::{
-        serialization, InstrumentController, LoadedInstrument, ToneGenerator, VirtualInstrument,
-    },
+    instrument::{serialization, InstrumentController, ToneGenerator, VirtualInstrument},
+    node::LoadedInstrument,
     sampler::PreparedSampler,
     Note,
 };
@@ -40,9 +39,9 @@ fn main() -> Result<(), Box<dyn Error>> {
             if channel == &0 {
                 match message {
                     ChannelMessage::NoteOff { key, .. } => instrument.stop_note(*key),
-                    ChannelMessage::NoteOn { key, velocity } => {
-                        instrument.play_note(Note::new(*key, *velocity)).unwrap()
-                    }
+                    ChannelMessage::NoteOn { key, velocity } => instrument
+                        .play_note(Note::new(*key as f32, *velocity))
+                        .unwrap(),
                     ChannelMessage::ControlChange { controller, value } => match controller {
                         Controller::Damper => instrument.set_sustain(value > &0x40),
                         _ => println!(

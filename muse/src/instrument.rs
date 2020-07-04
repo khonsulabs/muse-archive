@@ -1,7 +1,7 @@
 use crate::{
     envelope::PlayingState,
-    instrument::loaded::Instantiatable,
     manager::{Device, PlayingHandle},
+    node::{Instantiatable, LoadedInstrument},
     note::Note,
     sampler::PreparedSampler,
 };
@@ -10,18 +10,75 @@ use std::{
     time::Duration,
 };
 
-mod loaded;
-pub use loaded::*;
-
 #[cfg(feature = "serialization")]
 pub mod serialization;
 
 pub struct GeneratedTone<T> {
     pub source: T,
-    pub control: Arc<RwLock<PlayingState>>,
+    pub control: ControlHandle,
 }
 
-pub type ControlHandles = Vec<Arc<RwLock<PlayingState>>>;
+pub type ControlHandle = Arc<RwLock<PlayingState>>;
+
+#[derive(Debug, Default)]
+pub struct ControlHandles(Arc<RwLock<Vec<ControlHandle>>>);
+
+impl ControlHandles {
+    pub fn new() -> Self {
+        Self(Arc::new(RwLock::new(Vec::new())))
+    }
+
+    pub fn push(&self, value: ControlHandle) {
+        let mut vec = self.0.write().unwrap();
+        vec.push(value);
+    }
+
+    pub fn is_playing(&self) -> bool {
+        let vec = self.0.read().unwrap();
+        for control in vec.iter() {
+            let value = control.read().unwrap();
+            if let PlayingState::Playing = *value {
+                return true;
+            }
+        }
+
+        false
+    }
+
+    fn stop(&self) {
+        let vec = self.0.read().unwrap();
+        for control in vec.iter() {
+            let mut value = control.write().unwrap();
+            *value = PlayingState::Stopping;
+        }
+    }
+
+    fn stopped(&self) -> bool {
+        let control_handles = self.0.read().unwrap();
+        control_handles
+            .iter()
+            .map(|control| {
+                let value = control.read().unwrap();
+                *value
+            })
+            .all(|state| state == PlayingState::Stopped)
+    }
+
+    fn sustain(&self) {
+        let vec = self.0.read().unwrap();
+        for control in vec.iter() {
+            let mut value = control.write().unwrap();
+            *value = PlayingState::Sustaining;
+        }
+    }
+
+    pub fn new_handle(&self) -> ControlHandle {
+        let handle = Arc::new(RwLock::new(PlayingState::Playing));
+        let mut vec = self.0.write().unwrap();
+        vec.push(handle.clone());
+        handle
+    }
+}
 
 #[derive(Debug)]
 pub struct InstrumentController<T> {
@@ -41,14 +98,14 @@ impl<T> Default for InstrumentController<T> {
 impl<T> InstrumentController<T>
 where
     T: ToneGenerator,
-    T::CustomNodes: Instantiatable,
+    T::CustomNodes: Instantiatable + Clone + 'static,
 {
     pub fn instantiate(
         &mut self,
-        sampler: &loaded::LoadedInstrument<T::CustomNodes>,
+        sampler: &LoadedInstrument<T::CustomNodes>,
         note: Note,
     ) -> Result<PreparedSampler, serialization::Error> {
-        Ok(sampler.instantiate(&note, &mut self.control_handles))
+        Ok(sampler.instantiate(&note, &self.control_handles))
     }
 }
 
@@ -70,28 +127,15 @@ pub struct PlayingNote<T> {
 
 impl<T> PlayingNote<T> {
     fn is_playing(&self) -> bool {
-        for control in &self.controller.control_handles {
-            let value = control.read().unwrap();
-            if let PlayingState::Playing = *value {
-                return true;
-            }
-        }
-
-        false
+        self.controller.control_handles.is_playing()
     }
 
     fn stop(&self) {
-        for control in &self.controller.control_handles {
-            let mut value = control.write().unwrap();
-            *value = PlayingState::Stopping;
-        }
+        self.controller.control_handles.stop()
     }
 
     fn sustain(&self) {
-        for control in &self.controller.control_handles {
-            let mut value = control.write().unwrap();
-            *value = PlayingState::Sustaining;
-        }
+        self.controller.control_handles.sustain()
     }
 }
 
@@ -104,14 +148,7 @@ impl<T> Drop for PlayingNote<T> {
 
         std::thread::spawn(move || loop {
             {
-                let all_stopped = control_handles
-                    .iter()
-                    .map(|control| {
-                        let value = control.read().unwrap();
-                        *value
-                    })
-                    .all(|state| state == PlayingState::Stopped);
-                if all_stopped {
+                if control_handles.stopped() {
                     println!("Sound stopping");
                     drop(handle);
                     return;
@@ -156,7 +193,8 @@ where
 
     pub fn play_note(&mut self, note: Note) -> Result<(), anyhow::Error> {
         // We need to re-tone the note, so we'll get rid of the existing notes
-        self.playing_notes.retain(|n| n.note.step != note.step);
+        self.playing_notes
+            .retain(|n| n.note.step() as u8 != note.step() as u8);
 
         let mut controller = InstrumentController::default();
         let source = self.tone_generator.generate_tone(note, &mut controller)?;
@@ -178,12 +216,12 @@ where
             if let Some(existing_note) = self
                 .playing_notes
                 .iter_mut()
-                .find(|pn| pn.note.step == step)
+                .find(|pn| pn.note.step() as u8 == step)
             {
                 existing_note.sustain();
             }
         } else {
-            self.playing_notes.retain(|pn| pn.note.step != step);
+            self.playing_notes.retain(|pn| pn.note.step() as u8 != step);
         }
     }
 

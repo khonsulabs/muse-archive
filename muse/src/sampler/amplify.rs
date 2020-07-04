@@ -1,6 +1,6 @@
 use crate::{
     parameter::Parameter,
-    sampler::{PreparableSampler, PreparedSampler, Sample, Sampler},
+    sampler::{FrameInfo, PreparableSampler, PreparedSampler, Sample, Sampler},
 };
 
 #[derive(Debug)]
@@ -19,9 +19,9 @@ impl Amplify {
 }
 
 impl Sampler for Amplify {
-    fn sample(&mut self, sample_rate: u32, clock: usize) -> Option<Sample> {
-        if let Some(sample) = self.source.sample(sample_rate, clock) {
-            if let Some(amplify) = self.amplify.next(sample_rate, clock) {
+    fn sample(&mut self, frame: &FrameInfo) -> Option<Sample> {
+        if let Some(sample) = self.source.sample(frame) {
+            if let Some(amplify) = self.amplify.next(frame) {
                 return Some(sample * amplify);
             }
         }

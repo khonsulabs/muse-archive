@@ -1,3 +1,4 @@
+use crate::sampler::FrameInfo;
 use kurbo::{BezPath, PathEl};
 use std::{convert::TryFrom, sync::Arc};
 
@@ -125,12 +126,12 @@ pub struct EnvelopeCurveInstance {
 }
 
 impl EnvelopeCurveInstance {
-    pub fn advance(&mut self, current_frame: usize, sample_rate: u32) -> Option<f32> {
+    pub fn advance(&mut self, frame: &FrameInfo) -> Option<f32> {
         let start_frame = match self.start_frame {
             Some(frame) => frame,
             None => {
-                self.start_frame = Some(current_frame);
-                current_frame
+                self.start_frame = Some(frame.clock);
+                frame.clock
             }
         };
 
@@ -147,9 +148,9 @@ impl EnvelopeCurveInstance {
         };
 
         let segment = &self.segments[current_segment_index];
-        let segment_frames = segment.frames_for_sample_rate(sample_rate);
+        let segment_frames = segment.frames_for_sample_rate(frame.sample_rate);
         let relative_frame =
-            current_frame - start_frame + self.start_frame_offset.unwrap_or_default();
+            frame.clock - start_frame + self.start_frame_offset.unwrap_or_default();
 
         if segment_frames <= relative_frame {
             if current_segment_index + 1 >= self.segments.len() {
@@ -158,7 +159,7 @@ impl EnvelopeCurveInstance {
             }
 
             self.segment = Some(current_segment_index + 1);
-            self.advance(current_frame, sample_rate)
+            self.advance(frame)
         } else {
             // lerp the value
             let fractional_position = relative_frame as f32 / segment_frames as f32;
@@ -174,7 +175,7 @@ impl EnvelopeCurveInstance {
     }
 
     /// Solves the curve for a y value of `target_value`. Used for making release seamlessly fade from wherever the current state is
-    pub fn descend_to(&mut self, target_value: f32, sample_rate: u32) {
+    pub fn descend_to(&mut self, target_value: f32, frame: &FrameInfo) {
         if let Some((index, containing_segment)) =
             self.segments.iter().enumerate().find(|(_, segment)| {
                 segment.start_value > target_value && segment.end_value <= target_value
@@ -185,7 +186,7 @@ impl EnvelopeCurveInstance {
             let segment_value_delta = containing_segment.start_value - containing_segment.end_value;
             let relative_value = containing_segment.start_value - target_value;
             let value_ratio = relative_value / segment_value_delta;
-            let segment_frames = containing_segment.frames_for_sample_rate(sample_rate);
+            let segment_frames = containing_segment.frames_for_sample_rate(frame.sample_rate);
 
             self.start_frame_offset = Some((value_ratio * segment_frames as f32) as usize);
             println!(

@@ -8,20 +8,21 @@ use crate::{
     parameter,
     sampler::{
         Add, Amplify, Multiply, Oscillator, Pan, PreparableSampler, PreparedSampler, Sawtooth,
-        Sine, Square, Triangle,
+        Sine, Square, Triangle, Unison,
     },
 };
 use std::{collections::HashMap, convert::TryFrom};
 
+#[derive(Debug)]
 pub struct LoadedInstrument<T = ()> {
     output: Node<T>,
 }
 
 impl<T> Instantiatable for LoadedInstrument<T>
 where
-    T: Instantiatable,
+    T: Instantiatable + Clone + std::fmt::Debug + 'static,
 {
-    fn instantiate(&self, note: &Note, control_handles: &mut ControlHandles) -> PreparedSampler {
+    fn instantiate(&self, note: &Note, control_handles: &ControlHandles) -> PreparedSampler {
         self.output.instantiate(note, control_handles)
     }
 }
@@ -91,12 +92,12 @@ where
     }
 }
 
-pub trait Instantiatable {
-    fn instantiate(&self, note: &Note, controls: &mut ControlHandles) -> PreparedSampler;
+pub trait Instantiatable: Send + Sync + std::fmt::Debug {
+    fn instantiate(&self, note: &Note, controls: &ControlHandles) -> PreparedSampler;
 }
 
 impl Instantiatable for () {
-    fn instantiate(&self, _note: &Note, _controls: &mut ControlHandles) -> PreparedSampler {
+    fn instantiate(&self, _note: &Note, _controls: &ControlHandles) -> PreparedSampler {
         unreachable!()
     }
 }
@@ -107,6 +108,11 @@ pub enum Node<T> {
         function: OscillatorFunction,
         frequency: Parameter,
         amplitude: Parameter,
+    },
+    Unison {
+        template: Box<Self>,
+        quantity: u8,
+        detune: Parameter,
     },
     Amplify {
         value: Parameter,
@@ -127,17 +133,17 @@ pub enum Node<T> {
 
 impl<T> Instantiatable for Node<T>
 where
-    T: Instantiatable,
+    T: Instantiatable + Clone + 'static,
 {
-    fn instantiate(&self, note: &Note, controls: &mut ControlHandles) -> PreparedSampler {
+    fn instantiate(&self, note: &Note, controls: &ControlHandles) -> PreparedSampler {
         match self {
             Node::Oscillator {
                 frequency,
                 function,
                 amplitude,
             } => {
-                let frequency = frequency.instantiate(note, controls);
-                let amplitude = amplitude.instantiate(note, controls);
+                let frequency = frequency.instantiate(controls);
+                let amplitude = amplitude.instantiate(controls);
 
                 match function {
                     OscillatorFunction::Sine => {
@@ -169,15 +175,25 @@ where
             )
             .prepare(),
             Node::Amplify { value, input } => Amplify::new(
-                value.instantiate(note, controls),
+                value.instantiate(controls),
                 input.instantiate(note, controls),
             )
             .prepare(),
             Node::Pan { value, input } => Pan::new(
-                value.instantiate(note, controls),
+                value.instantiate(controls),
                 input.instantiate(note, controls),
             )
             .prepare(),
+            Node::Unison {
+                template,
+                detune,
+                quantity,
+            } => {
+                let samplers = (0..*quantity)
+                    .map(|_| template.instantiate(note, controls))
+                    .collect();
+                Unison::new(detune.instantiate(controls), samplers).prepare()
+            }
             Node::Custom(custom) => custom.instantiate(note, controls),
         }
     }
@@ -193,11 +209,11 @@ pub enum Parameter {
 }
 
 impl Parameter {
-    pub fn instantiate(&self, note: &Note, controls: &mut ControlHandles) -> parameter::Parameter {
+    pub fn instantiate(&self, controls: &ControlHandles) -> parameter::Parameter {
         match self {
-            Parameter::NoteHertz => parameter::Parameter::Value(note.hertz()),
-            Parameter::NoteStep => parameter::Parameter::Value(note.step as f32),
-            Parameter::NoteVelocity => parameter::Parameter::Value(note.velocity()),
+            Parameter::NoteHertz => parameter::Parameter::NoteHertz,
+            Parameter::NoteStep => parameter::Parameter::NoteStep,
+            Parameter::NoteVelocity => parameter::Parameter::NoteVelocity,
             Parameter::Envelope(config) => config.as_parameter(controls),
             Parameter::Value(value) => parameter::Parameter::Value(*value),
         }

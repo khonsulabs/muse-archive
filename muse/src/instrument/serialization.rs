@@ -71,6 +71,11 @@ pub enum Node<T> {
         value: Parameter,
         input: String,
     },
+    Unison {
+        quantity: u8,
+        detune: Parameter,
+        input: String,
+    },
     Custom(T),
 }
 

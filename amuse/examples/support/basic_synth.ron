@@ -11,8 +11,17 @@ Instrument(
     },
     nodes: {
         "output": Amplify(
+            value: Value(0.5),
+            input: "velocity",
+        ),
+        "velocity": Amplify(
             value: NoteVelocity,
+            input: "unison",
+        ),
+        "unison": Unison(
+            detune: Value(0.01),
             input: "oscillators",
+            quantity: 3,
         ),
         "oscillators": Multiply(
             inputs: [ "sine", "triangle" ],

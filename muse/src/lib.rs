@@ -1,6 +1,7 @@
 pub mod envelope;
 pub mod instrument;
 pub mod manager;
+pub mod node;
 mod note;
 pub use note::*;
 pub mod parameter;

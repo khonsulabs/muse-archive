@@ -4,12 +4,25 @@ mod max;
 mod multiply;
 mod oscillator;
 mod pan;
+mod unison;
+use crate::Note;
 pub use add::*;
 pub use amplify::*;
 pub use max::*;
 pub use multiply::*;
 pub use oscillator::*;
 pub use pan::*;
+pub use unison::*;
+
+fn clampf(value: f32, min: f32, max: f32) -> f32 {
+    if value < min {
+        min
+    } else if value > max {
+        max
+    } else {
+        value
+    }
+}
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Sample {
@@ -17,16 +30,42 @@ pub struct Sample {
     pub right: f32,
 }
 
+impl Sample {
+    pub fn clamped(&self) -> Sample {
+        Self {
+            left: clampf(self.left, -1., 1.),
+            right: clampf(self.right, -1., 1.),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct FrameInfo {
+    pub clock: usize,
+    pub sample_rate: u32,
+    pub note: Note,
+}
+
+impl FrameInfo {
+    pub fn with_note(&self, note: Note) -> Self {
+        Self {
+            clock: self.clock,
+            sample_rate: self.sample_rate,
+            note,
+        }
+    }
+}
+
 pub trait Sampler: Send + Sync + std::fmt::Debug {
-    fn sample(&mut self, sample_rate: u32, clock: usize) -> Option<Sample>;
+    fn sample(&mut self, frame: &FrameInfo) -> Option<Sample>;
 }
 
 #[derive(Debug)]
 pub struct PreparedSampler(Box<dyn Sampler + 'static>);
 
 impl Sampler for PreparedSampler {
-    fn sample(&mut self, sample_rate: u32, clock: usize) -> Option<Sample> {
-        self.0.sample(sample_rate, clock)
+    fn sample(&mut self, frame: &FrameInfo) -> Option<Sample> {
+        self.0.sample(frame)
     }
 }
 
@@ -100,6 +139,17 @@ impl std::ops::MulAssign<Sample> for Sample {
     fn mul_assign(&mut self, rhs: Sample) {
         self.left *= rhs.left;
         self.right *= rhs.right;
+    }
+}
+
+impl std::ops::Div<f32> for Sample {
+    type Output = Self;
+
+    fn div(self, rhs: f32) -> Self::Output {
+        Self {
+            left: self.left / rhs,
+            right: self.right / rhs,
+        }
     }
 }
 

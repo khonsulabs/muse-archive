@@ -1,10 +1,12 @@
-use std::sync::{Arc, RwLock};
+use crate::instrument::ControlHandle;
 
 mod config;
 mod curve;
 pub use config::{CurveBuilder, EnvelopeBuilder, EnvelopeConfiguration, EnvelopeCurve, Point};
 use curve::EnvelopeCurveInstance;
 pub use curve::{EnvelopeCurveError, FlattenedCurve};
+
+use crate::sampler::FrameInfo;
 
 #[derive(Debug, Clone, Copy)]
 pub enum EnvelopeStage {
@@ -27,7 +29,7 @@ pub enum PlayingState {
 #[derive(Debug, Clone)]
 pub struct Envelope {
     state: EnvelopeStage,
-    is_playing: Arc<RwLock<PlayingState>>,
+    is_playing: ControlHandle,
     last_value: Option<f32>,
 
     attack: EnvelopeCurveInstance,
@@ -38,52 +40,51 @@ pub struct Envelope {
 }
 
 impl Envelope {
-    fn advance_attack(&mut self, sample_rate: u32, clock: usize) -> (EnvelopeStage, Option<f32>) {
-        match self.attack.advance(clock, sample_rate) {
+    fn advance_attack(&mut self, frame: &FrameInfo) -> (EnvelopeStage, Option<f32>) {
+        match self.attack.advance(frame) {
             Some(value) => (EnvelopeStage::Attack, Some(value)),
             None => {
                 println!("Advancing to hold");
-                self.advance_hold(sample_rate, clock)
+                self.advance_hold(frame)
             }
         }
     }
 
-    fn stop_if_needed_or<F: Fn(&mut Self, u32, usize) -> (EnvelopeStage, Option<f32>)>(
+    fn stop_if_needed_or<F: Fn(&mut Self, &FrameInfo) -> (EnvelopeStage, Option<f32>)>(
         &mut self,
         f: F,
-        sample_rate: u32,
-        clock: usize,
+        frame: &FrameInfo,
     ) -> (EnvelopeStage, Option<f32>) {
         if self.should_stop() {
             println!("Skipping to release");
-            self.advance_release(sample_rate, clock)
+            self.advance_release(frame)
         } else {
-            f(self, sample_rate, clock)
+            f(self, frame)
         }
     }
 
-    fn advance_hold(&mut self, sample_rate: u32, clock: usize) -> (EnvelopeStage, Option<f32>) {
-        match self.hold.advance(clock, sample_rate) {
+    fn advance_hold(&mut self, frame: &FrameInfo) -> (EnvelopeStage, Option<f32>) {
+        match self.hold.advance(frame) {
             Some(value) => (EnvelopeStage::Hold, Some(value)),
             None => {
                 println!("Advancing to decay");
-                self.stop_if_needed_or(Self::advance_decay, sample_rate, clock)
+                self.stop_if_needed_or(Self::advance_decay, frame)
             }
         }
     }
 
-    fn advance_decay(&mut self, sample_rate: u32, clock: usize) -> (EnvelopeStage, Option<f32>) {
-        match self.decay.advance(clock, sample_rate) {
+    fn advance_decay(&mut self, frame: &FrameInfo) -> (EnvelopeStage, Option<f32>) {
+        match self.decay.advance(frame) {
             Some(value) => (EnvelopeStage::Decay, Some(value)),
             None => {
                 println!("Advancing to sustain");
-                self.stop_if_needed_or(Self::sustain, sample_rate, clock)
+                self.stop_if_needed_or(Self::sustain, frame)
             }
         }
     }
 
-    fn sustain(&mut self, sample_rate: u32, clock: usize) -> (EnvelopeStage, Option<f32>) {
-        match self.sustain.advance(clock, sample_rate) {
+    fn sustain(&mut self, frame: &FrameInfo) -> (EnvelopeStage, Option<f32>) {
+        match self.sustain.advance(frame) {
             Some(value) => (EnvelopeStage::Decay, Some(value)),
             None => (
                 EnvelopeStage::Sustain,
@@ -92,14 +93,14 @@ impl Envelope {
         }
     }
 
-    fn advance_release(&mut self, sample_rate: u32, clock: usize) -> (EnvelopeStage, Option<f32>) {
+    fn advance_release(&mut self, frame: &FrameInfo) -> (EnvelopeStage, Option<f32>) {
         if self.release.is_at_start() {
             println!("Releasing {:?}", self.last_value);
             if let Some(last_value) = self.last_value {
-                self.release.descend_to(last_value, sample_rate);
+                self.release.descend_to(last_value, frame);
             }
         }
-        match self.release.advance(clock, sample_rate) {
+        match self.release.advance(frame) {
             Some(value) => (EnvelopeStage::Release, Some(value)),
             None => self.stop(),
         }
@@ -118,13 +119,13 @@ impl Envelope {
         (EnvelopeStage::Completed, None)
     }
 
-    pub fn next(&mut self, sample_rate: u32, clock: usize) -> Option<f32> {
+    pub fn next(&mut self, frame: &FrameInfo) -> Option<f32> {
         let (new_state, amplitude) = match self.state {
-            EnvelopeStage::Attack => self.advance_attack(sample_rate, clock),
-            EnvelopeStage::Hold => self.stop_if_needed_or(Self::advance_hold, sample_rate, clock),
-            EnvelopeStage::Decay => self.stop_if_needed_or(Self::advance_decay, sample_rate, clock),
-            EnvelopeStage::Sustain => self.stop_if_needed_or(Self::sustain, sample_rate, clock),
-            EnvelopeStage::Release => self.advance_release(sample_rate, clock),
+            EnvelopeStage::Attack => self.advance_attack(frame),
+            EnvelopeStage::Hold => self.stop_if_needed_or(Self::advance_hold, frame),
+            EnvelopeStage::Decay => self.stop_if_needed_or(Self::advance_decay, frame),
+            EnvelopeStage::Sustain => self.stop_if_needed_or(Self::sustain, frame),
+            EnvelopeStage::Release => self.advance_release(frame),
             EnvelopeStage::Completed => self.stop(),
         };
 

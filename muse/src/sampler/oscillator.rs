@@ -1,4 +1,4 @@
-use crate::sampler::{Sample, Sampler};
+use crate::sampler::{FrameInfo, Sample, Sampler};
 use lazy_static::lazy_static;
 use std::{f32::consts::PI, time::Instant};
 
@@ -41,18 +41,16 @@ impl<T> Sampler for Oscillator<T>
 where
     T: OscillatorFunction + 'static,
 {
-    fn sample(&mut self, sample_rate: u32, clock: usize) -> Option<Sample> {
-        let current_sample = clock as f32 / sample_rate as f32;
-        let frequency = self.frequency.next(sample_rate, clock)?;
+    fn sample(&mut self, frame: &FrameInfo) -> Option<Sample> {
+        let current_sample = frame.clock as f32 / frame.sample_rate as f32;
+        let frequency = self.frequency.next(frame)?;
         let value = current_sample * frequency * 2.0 * std::f32::consts::PI;
         let value = value % (2.0 * PI);
         let sample = T::compute_sample(value);
 
-        self.amplitude
-            .next(sample_rate, clock)
-            .map(|amplification| Sample {
-                left: amplification * sample / 2.0,
-                right: amplification * sample / 2.0,
-            })
+        self.amplitude.next(frame).map(|amplification| Sample {
+            left: amplification * sample / 2.0,
+            right: amplification * sample / 2.0,
+        })
     }
 }

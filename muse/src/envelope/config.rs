@@ -1,14 +1,10 @@
 use super::{
     curve::{EnvelopeCurveError, EnvelopeSegment, FlattenedCurve},
-    Envelope, EnvelopeStage, PlayingState,
+    Envelope, EnvelopeStage,
 };
 use crate::{instrument::ControlHandles, parameter::Parameter};
 use kurbo::BezPath;
-use std::{
-    convert::TryFrom,
-    sync::{Arc, RwLock},
-    time::Duration,
-};
+use std::{convert::TryFrom, time::Duration};
 
 #[derive(Debug, Default)]
 pub struct EnvelopeBuilder {
@@ -130,8 +126,8 @@ pub struct EnvelopeConfiguration {
 }
 
 impl EnvelopeConfiguration {
-    pub fn as_parameter(&self, controls: &mut ControlHandles) -> Parameter {
-        let is_playing = Arc::new(RwLock::new(PlayingState::Playing));
+    pub fn as_parameter(&self, controls: &ControlHandles) -> Parameter {
+        let is_playing = controls.new_handle();
         controls.push(is_playing.clone());
 
         let envelope = Envelope {
