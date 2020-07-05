@@ -39,7 +39,7 @@ impl Sample {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct FrameInfo {
     pub clock: usize,
     pub sample_rate: u32,

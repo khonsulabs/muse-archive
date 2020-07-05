@@ -11,7 +11,7 @@ Instrument(
     },
     nodes: {
         "output": Amplify(
-            value: Value(0.5),
+            value: Value(0.6),
             input: "velocity",
         ),
         "velocity": Amplify(

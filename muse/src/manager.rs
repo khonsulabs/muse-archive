@@ -1,17 +1,13 @@
-use crate::{
-    note::Note,
-    sampler::{FrameInfo, PreparedSampler, Sample, Sampler},
-};
-use cpal::{
-    traits::{EventLoopTrait, HostTrait},
-    Sample as CpalSample,
-};
+use crate::{note::Note, sampler::PreparedSampler};
+use cpal::traits::{EventLoopTrait, HostTrait};
 use crossbeam::{
-    channel::{unbounded, Receiver, RecvTimeoutError, Sender},
+    channel::{bounded, unbounded, Receiver, RecvTimeoutError, Sender},
     sync::ShardedLock,
 };
 use std::{sync::Arc, time::Duration};
+mod cpal_thread;
 mod device;
+mod sampler_thread;
 pub use device::Device;
 
 pub(crate) enum ManagerMessage {
@@ -56,6 +52,8 @@ impl Manager {
 
         let (sender, receiver) = unbounded();
 
+        let (sample_sender, sample_receiver) = bounded(1024);
+
         let manager = Arc::new(ShardedLock::new(Manager::new(sender, output_stream_id)));
 
         let manager_for_thread = manager.clone();
@@ -67,10 +65,15 @@ impl Manager {
                     .unwrap_or_default()
             })?;
 
-        let manager_for_thread = manager.clone();
+        let format_for_thread = format.clone();
         std::thread::Builder::new()
             .name("muse::cpal".to_owned())
-            .spawn(move || CpalThread::run(manager_for_thread, event_loop, format))?;
+            .spawn(move || cpal_thread::run(sample_receiver, event_loop, format_for_thread))?;
+
+        let manager_for_thread = manager.clone();
+        std::thread::Builder::new()
+            .name("muse::sampler".to_owned())
+            .spawn(move || sampler_thread::run(manager_for_thread, sample_sender, format))?;
 
         Ok(manager)
     }
@@ -154,91 +157,6 @@ impl ManagerThread {
         manager
             .playing_sounds
             .retain(|s| s.still_producing_values || Arc::strong_count(&s.handle.0) > 1)
-    }
-}
-
-struct CpalThread {}
-
-impl CpalThread {
-    fn run(
-        manager: Arc<ShardedLock<Manager>>,
-        event_loop: cpal::EventLoop,
-        format: cpal::Format,
-    ) -> ! {
-        event_loop.run(move |id, result| {
-            let data = match result {
-                Ok(data) => data,
-                Err(err) => {
-                    eprintln!("an error occurred on stream {:?}: {}", id, err);
-                    return;
-                }
-            };
-
-            match data {
-                cpal::StreamData::Output {
-                    buffer: cpal::UnknownTypeOutputBuffer::U16(buffer),
-                } => {
-                    Self::copy_samples(&manager, buffer, &format);
-                }
-                cpal::StreamData::Output {
-                    buffer: cpal::UnknownTypeOutputBuffer::I16(buffer),
-                } => {
-                    Self::copy_samples(&manager, buffer, &format);
-                }
-                cpal::StreamData::Output {
-                    buffer: cpal::UnknownTypeOutputBuffer::F32(buffer),
-                } => {
-                    Self::copy_samples(&manager, buffer, &format);
-                }
-                _ => (),
-            }
-        });
-    }
-
-    fn next_sample(manager: &ManagerHandle, format: &cpal::Format) -> Sample {
-        let mut manager = manager.write().expect("Error locking manager for sampling");
-        let clock = manager.increment_clock();
-        let mut combined_sample = Sample::default();
-        for sample in manager.playing_sounds.iter_mut().filter_map(|s| {
-            let frame = FrameInfo {
-                clock,
-                sample_rate: format.sample_rate.0,
-                note: s.note,
-            };
-            let sample = s.sampler.sample(&frame);
-            if sample.is_none() {
-                s.still_producing_values = false;
-            }
-            sample
-        }) {
-            combined_sample += sample;
-        }
-        combined_sample
-    }
-
-    fn copy_samples<S>(
-        manager: &ManagerHandle,
-        mut buffer: cpal::OutputBuffer<S>,
-        format: &cpal::Format,
-    ) where
-        S: CpalSample,
-    {
-        for sample in buffer.chunks_mut(format.channels as usize) {
-            let generated_sample = Self::next_sample(manager, format);
-
-            match format.channels {
-                1 => {
-                    sample[0] = cpal::Sample::from(
-                        &((generated_sample.left + generated_sample.right) / 2.0),
-                    )
-                }
-                2 => {
-                    sample[0] = cpal::Sample::from(&generated_sample.left);
-                    sample[1] = cpal::Sample::from(&generated_sample.right);
-                }
-                _ => panic!("Unsupported number of channels {}", format.channels),
-            }
-        }
     }
 }
 
