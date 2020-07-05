@@ -54,7 +54,7 @@ impl<T> LoadedInstrument<T> {
 #[cfg(feature = "serialization")]
 impl<T> TryFrom<serialization::Instrument<T>> for LoadedInstrument<T>
 where
-    T: serialization::NodeInstantiator<T>,
+    T: serialization::NodeInstantiator<T> + std::fmt::Debug,
 {
     type Error = serialization::Error;
     fn try_from(
@@ -80,6 +80,8 @@ where
             });
 
             if initial_len == nodes_to_load.len() {
+                println!("{:#?}", nodes_to_load);
+                println!("{:#?}", context);
                 return Err(serialization::Error::RecursiveNodeDependencies(
                     nodes_to_load.iter().map(|n| n.0.clone()).collect(),
                 ));

@@ -35,10 +35,25 @@ impl<'a, T> Context<'a, T> {
     }
 
     pub fn node_references(&mut self, names: &[String]) -> Result<Vec<node::Node<T>>, Error> {
-        names
+        let nodes = names
             .iter()
-            .map(|i| self.node_reference(i))
-            .collect::<Result<Vec<_>, _>>()
+            .map(|n| (n.clone(), self.node_reference(n)))
+            .collect::<Vec<_>>();
+        // If we have any errors, we need to put the nodes back. This can happen if one node
+        // depends on multiple but only one has been loaded so far.
+        if nodes.iter().any(|(_, n)| n.is_err()) {
+            let mut not_found = Vec::new();
+            for (name, node) in nodes {
+                if let Ok(node) = node {
+                    self.nodes.insert(name, node);
+                } else {
+                    not_found.push(name);
+                }
+            }
+            Err(Error::NodeNotFound(not_found.join(", ")))
+        } else {
+            Ok(nodes.into_iter().map(|(_, n)| n.unwrap()).collect())
+        }
     }
 
     pub(crate) fn node_instantiated(&mut self, name: &str, sampler: node::Node<T>) {
