@@ -57,7 +57,7 @@ impl Envelope {
         f: F,
         frame: &FrameInfo,
     ) -> (EnvelopeStage, Option<f32>) {
-        if self.should_stop(frame) {
+        if self.should_stop() {
             println!("Skipping to release");
             self.advance_release(frame)
         } else {
@@ -108,16 +108,10 @@ impl Envelope {
         }
     }
 
-    fn should_stop(&mut self, frame: &FrameInfo) -> bool {
-        // This method gets called frequently, do not check the is_playing value too often
-        if self.last_playing_check.wrapping_sub(frame.clock) > 1024 {
-            self.last_playing_check = frame.clock;
-            match self.is_playing.load() {
-                PlayingState::Playing | PlayingState::Sustaining => false,
-                _ => true,
-            }
-        } else {
-            false
+    fn should_stop(&mut self) -> bool {
+        match self.is_playing.load() {
+            PlayingState::Playing | PlayingState::Sustaining => false,
+            _ => true,
         }
     }
 
