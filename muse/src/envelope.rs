@@ -32,6 +32,8 @@ pub struct Envelope {
     is_playing: ControlHandle,
     last_value: Option<f32>,
 
+    last_playing_check: usize,
+
     attack: EnvelopeCurveInstance,
     hold: EnvelopeCurveInstance,
     decay: EnvelopeCurveInstance,
@@ -55,7 +57,7 @@ impl Envelope {
         f: F,
         frame: &FrameInfo,
     ) -> (EnvelopeStage, Option<f32>) {
-        if self.should_stop() {
+        if self.should_stop(frame) {
             println!("Skipping to release");
             self.advance_release(frame)
         } else {
@@ -106,16 +108,21 @@ impl Envelope {
         }
     }
 
-    fn should_stop(&self) -> bool {
-        match *self.is_playing.read().unwrap() {
-            PlayingState::Playing | PlayingState::Sustaining => false,
-            _ => true,
+    fn should_stop(&mut self, frame: &FrameInfo) -> bool {
+        // This method gets called frequently, do not check the is_playing value too often
+        if self.last_playing_check.wrapping_sub(frame.clock) > 1024 {
+            self.last_playing_check = frame.clock;
+            match self.is_playing.load() {
+                PlayingState::Playing | PlayingState::Sustaining => false,
+                _ => true,
+            }
+        } else {
+            false
         }
     }
 
     fn stop(&self) -> (EnvelopeStage, Option<f32>) {
-        let mut control = self.is_playing.write().unwrap();
-        *control = PlayingState::Stopped;
+        self.is_playing.store(PlayingState::Stopped);
         (EnvelopeStage::Completed, None)
     }
 

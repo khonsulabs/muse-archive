@@ -134,6 +134,8 @@ impl EnvelopeConfiguration {
             state: EnvelopeStage::Attack,
             last_value: None,
 
+            last_playing_check: 0,
+
             attack: self.attack.instantiate(),
             hold: self.hold.instantiate(),
             decay: self.decay.instantiate(),

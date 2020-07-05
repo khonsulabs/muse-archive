@@ -22,7 +22,10 @@ impl Sampler for Unison {
             let steps = self.samplers.len() as f32 - 1.;
             let detune_step = if steps > 0. { detune / steps } else { 0.0 };
             let pitch_floor = frame.note.step() - detune_step * steps;
-            let samples = self
+            let mut sample_count = 0;
+            let mut combined_sample = Sample::default();
+
+            for sample in self
                 .samplers
                 .iter_mut()
                 .enumerate()
@@ -33,18 +36,13 @@ impl Sampler for Unison {
                     ));
                     sampler.sample(&frame)
                 })
-                .collect::<Vec<_>>();
+            {
+                combined_sample += sample;
+                sample_count += 1;
+            }
 
-            if !samples.is_empty() {
-                let sample_count = samples.len();
-                return Some(
-                    samples
-                        .into_iter()
-                        .fold(Sample::default(), |output, s| {
-                            output + (s / sample_count as f32)
-                        })
-                        .clamped(),
-                );
+            if sample_count > 0 {
+                return Some(combined_sample / (sample_count as f32));
             }
         }
 

@@ -5,6 +5,7 @@ use crate::{
     note::Note,
     sampler::PreparedSampler,
 };
+use crossbeam::atomic::AtomicCell;
 use std::{
     sync::{Arc, RwLock},
     time::Duration,
@@ -18,7 +19,7 @@ pub struct GeneratedTone<T> {
     pub control: ControlHandle,
 }
 
-pub type ControlHandle = Arc<RwLock<PlayingState>>;
+pub type ControlHandle = Arc<AtomicCell<PlayingState>>;
 
 #[derive(Debug, Default)]
 pub struct ControlHandles(Arc<RwLock<Vec<ControlHandle>>>);
@@ -36,8 +37,7 @@ impl ControlHandles {
     pub fn is_playing(&self) -> bool {
         let vec = self.0.read().unwrap();
         for control in vec.iter() {
-            let value = control.read().unwrap();
-            if let PlayingState::Playing = *value {
+            if let PlayingState::Playing = control.load() {
                 return true;
             }
         }
@@ -48,8 +48,7 @@ impl ControlHandles {
     fn stop(&self) {
         let vec = self.0.read().unwrap();
         for control in vec.iter() {
-            let mut value = control.write().unwrap();
-            *value = PlayingState::Stopping;
+            control.store(PlayingState::Stopping);
         }
     }
 
@@ -57,23 +56,19 @@ impl ControlHandles {
         let control_handles = self.0.read().unwrap();
         control_handles
             .iter()
-            .map(|control| {
-                let value = control.read().unwrap();
-                *value
-            })
+            .map(|control| control.load())
             .all(|state| state == PlayingState::Stopped)
     }
 
     fn sustain(&self) {
         let vec = self.0.read().unwrap();
         for control in vec.iter() {
-            let mut value = control.write().unwrap();
-            *value = PlayingState::Sustaining;
+            control.store(PlayingState::Sustaining);
         }
     }
 
     pub fn new_handle(&self) -> ControlHandle {
-        let handle = Arc::new(RwLock::new(PlayingState::Playing));
+        let handle = Arc::new(AtomicCell::new(PlayingState::Playing));
         let mut vec = self.0.write().unwrap();
         vec.push(handle.clone());
         handle

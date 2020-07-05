@@ -18,5 +18,8 @@ muse = { path = "../muse" }
 crossbeam = "0.7"
 once_cell = "1"
 
+[profile.release]
+debug = true
+
 [dev-dependencies]
 ron = "0.6"
