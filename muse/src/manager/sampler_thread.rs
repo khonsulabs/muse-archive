@@ -6,11 +6,20 @@ use crossbeam::{
 };
 use std::sync::Arc;
 
+fn desired_threads() -> usize {
+    // TOo many threads causes high CPU usage when it's really not necessary
+    // For a machine that reports 5 cores or less, we want to use 2 threads
+    // For machines in the sweet spot of 4-8 cores, we'll use half the number of CPUs
+    // Any machines with more than 8 CPUs will just use 4 threads.
+    // TODO Should this be configurable?
+    (num_cpus::get() / 2).min(2).max(4)
+}
+
 pub fn run(manager: ManagerHandle, sender: Sender<Sample>, format: cpal::Format) {
     let (sample_sender, sample_receiver) = unbounded();
     let (result_sender, result_receiver) = unbounded();
 
-    let thread_count = num_cpus::get();
+    let thread_count = desired_threads();
     (0..thread_count).for_each(|_| {
         let sample_receiver = sample_receiver.clone();
         let result_sender = result_sender.clone();
