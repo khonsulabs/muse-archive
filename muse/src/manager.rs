@@ -27,8 +27,14 @@ pub struct PlayingHandle(Arc<u64>);
 struct PlayingSound {
     note: Note,
     handle: PlayingHandle,
-    sampler: PreparedSampler,
-    still_producing_values: bool,
+    sampler: Arc<ShardedLock<PreparedSampler>>,
+}
+
+impl PlayingSound {
+    fn still_producing_values(&self) -> bool {
+        let sampler = self.sampler.read().expect("Error reading sampler");
+        sampler.still_producing_samples
+    }
 }
 
 #[derive(Debug)]
@@ -138,8 +144,7 @@ impl ManagerThread {
                     manager.playing_sounds.push(PlayingSound {
                         note,
                         handle: handle.clone(),
-                        sampler,
-                        still_producing_values: true,
+                        sampler: Arc::new(ShardedLock::new(sampler)),
                     });
                     handle
                 };
@@ -156,7 +161,7 @@ impl ManagerThread {
         let mut manager = self.manager.write().expect("Error locking manager");
         manager
             .playing_sounds
-            .retain(|s| s.still_producing_values || Arc::strong_count(&s.handle.0) > 1)
+            .retain(|s| s.still_producing_values() || Arc::strong_count(&s.handle.0) > 1)
     }
 }
 

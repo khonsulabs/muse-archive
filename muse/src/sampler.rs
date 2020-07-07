@@ -61,17 +61,33 @@ pub trait Sampler: Send + Sync + std::fmt::Debug {
 }
 
 #[derive(Debug)]
-pub struct PreparedSampler(Box<dyn Sampler + 'static>);
+pub struct PreparedSampler {
+    sampler: Box<dyn Sampler + 'static>,
+    pub still_producing_samples: bool,
+}
 
 impl Sampler for PreparedSampler {
     fn sample(&mut self, frame: &FrameInfo) -> Option<Sample> {
-        self.0.sample(frame)
+        if self.still_producing_samples {
+            match self.sampler.sample(frame) {
+                Some(sample) => Some(sample),
+                None => {
+                    self.still_producing_samples = false;
+                    None
+                }
+            }
+        } else {
+            None
+        }
     }
 }
 
 impl PreparedSampler {
     pub fn new<T: Sampler + 'static>(sampler: T) -> Self {
-        Self(Box::new(sampler))
+        Self {
+            sampler: Box::new(sampler),
+            still_producing_samples: true,
+        }
     }
 }
 
