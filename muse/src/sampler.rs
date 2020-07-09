@@ -169,6 +169,16 @@ impl std::ops::Div<f32> for Sample {
     }
 }
 
+impl std::iter::Sum for Sample {
+    fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
+        let mut sample = Sample::default();
+        for next_sample in iter {
+            sample += next_sample;
+        }
+        sample
+    }
+}
+
 pub mod prelude {
     pub use super::{
         add::*, amplify::*, max::*, multiply::*, oscillator::*, pan::*, PreparableSampler,

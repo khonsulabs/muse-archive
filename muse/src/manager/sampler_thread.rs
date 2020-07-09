@@ -47,7 +47,7 @@ struct SamplerThread {
 impl SamplerThread {
     fn run(&mut self) {
         loop {
-            let sample = self.next_sample().clamped();
+            let sample = self.next_sample();
             if let Err(err) = self.sender.send(sample) {
                 println!("Error on sampler thread: {}", err);
                 break;
@@ -70,17 +70,9 @@ impl SamplerThread {
             let _ = self.sample_sender.send((frame, sound.sampler.clone()));
         }
 
-        let mut combined_sample = Sample::default();
-        let mut sample_count = 0;
-        (0..manager.playing_sounds.len()).for_each(|_| match self.result_receiver.recv() {
-            Ok(Some(sample)) => {
-                combined_sample += sample;
-                sample_count += 1;
-            }
-            Err(_) => std::thread::yield_now(),
-            _ => {}
-        });
-        combined_sample / sample_count as f32
+        (0..manager.playing_sounds.len())
+            .filter_map(|_| self.result_receiver.recv().ok().flatten())
+            .sum()
     }
 }
 
