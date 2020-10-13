@@ -1,47 +1,12 @@
 use crate::sampler::Sample;
-use cpal::{traits::EventLoopTrait, Sample as CpalSample};
 use crossbeam::channel::Receiver;
 
-pub fn run(samples: Receiver<Sample>, event_loop: cpal::EventLoop, format: cpal::Format) -> ! {
-    event_loop.run(move |id, result| {
-        let data = match result {
-            Ok(data) => data,
-            Err(err) => {
-                eprintln!("an error occurred on stream {:?}: {}", id, err);
-                return;
-            }
-        };
-
-        match data {
-            cpal::StreamData::Output {
-                buffer: cpal::UnknownTypeOutputBuffer::U16(buffer),
-            } => {
-                let _ = copy_samples(&samples, buffer, &format);
-            }
-            cpal::StreamData::Output {
-                buffer: cpal::UnknownTypeOutputBuffer::I16(buffer),
-            } => {
-                let _ = copy_samples(&samples, buffer, &format);
-            }
-            cpal::StreamData::Output {
-                buffer: cpal::UnknownTypeOutputBuffer::F32(buffer),
-            } => {
-                let _ = copy_samples(&samples, buffer, &format);
-            }
-            _ => (),
-        }
-    });
-}
-
-fn copy_samples<S>(
+pub fn copy_samples(
     samples: &Receiver<Sample>,
-    mut buffer: cpal::OutputBuffer<S>,
-    format: &cpal::Format,
-) -> Result<(), anyhow::Error>
-where
-    S: CpalSample,
-{
-    for sample in buffer.chunks_mut(format.channels as usize) {
+    data: &mut [f32],
+    format: &cpal::StreamConfig,
+) -> Result<(), anyhow::Error> {
+    for sample in data.chunks_mut(format.channels as usize) {
         let generated_sample = samples.recv()?;
 
         match format.channels {

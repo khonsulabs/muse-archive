@@ -70,7 +70,7 @@ fn connect_to_available_inputs(
         input
             .ports()
             .into_iter()
-            .filter_map(|p| input.port_name(&p).ok().map(|name| name))
+            .filter_map(|p| input.port_name(&p).ok())
             .filter(|name| !open_ports.contains_key(name))
             .collect::<Vec<_>>()
     };

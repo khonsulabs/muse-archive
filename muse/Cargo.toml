@@ -14,13 +14,13 @@ default = ["serialization"]
 serialization = ["serde", "serde_derive"]
 
 [dependencies]
-cpal = "0.11"
+cpal = "0.12"
 pitch_calc = "0.12"
 anyhow = "1"
 thiserror = "1"
 lazy_static = "1"
 kurbo = "0.6"
-crossbeam = "0.7"
+crossbeam = "0.8"
 serde = { version = "1", optional = true }
 serde_derive = { version = "1", optional = true }
 num_cpus = "1"

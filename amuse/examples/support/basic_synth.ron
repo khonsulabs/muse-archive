@@ -11,10 +11,6 @@ Instrument(
     },
     nodes: {
         "output": Amplify(
-            value: Value(1.0),
-            input: "velocity",
-        ),
-        "velocity": Amplify(
             value: NoteVelocity,
             input: "unison",
         ),

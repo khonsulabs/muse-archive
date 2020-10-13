@@ -109,10 +109,10 @@ impl Envelope {
     }
 
     fn should_stop(&mut self) -> bool {
-        match self.is_playing.load() {
-            PlayingState::Playing | PlayingState::Sustaining => false,
-            _ => true,
-        }
+        !matches!(
+            self.is_playing.load(),
+            PlayingState::Playing | PlayingState::Sustaining
+        )
     }
 
     fn stop(&self) -> (EnvelopeStage, Option<f32>) {

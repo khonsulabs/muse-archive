@@ -14,10 +14,10 @@ pub enum HardwareError {
     DevicesError(#[from] cpal::DevicesError),
     #[error("Error getting device name {0}")]
     DeviceNameError(#[from] cpal::DeviceNameError),
-    #[error("Error getting supported formats {0}")]
-    SupportedFormatsError(#[from] cpal::SupportedFormatsError),
-    #[error("Error getting default format {0}")]
-    DefaultFormatError(#[from] cpal::DefaultFormatError),
+    // #[error("Error getting supported formats {0}")]
+    // SupportedFormatsError(#[from] cpal::SupportedFormatsError),
+    // #[error("Error getting default format {0}")]
+    // DefaultFormatError(#[from] cpal::DefaultFormatError),
 }
 
 pub struct Device {
@@ -28,8 +28,8 @@ impl Device {
     pub fn default_output() -> Result<Self, anyhow::Error> {
         let host = cpal::default_host();
         if let Some(cpal_device) = host.default_output_device() {
-            let format = cpal_device.default_output_format()?;
-            let manager = Manager::open_output_device(host, cpal_device, format)?;
+            let format = cpal_device.default_output_config()?;
+            let manager = Manager::open_output_device(cpal_device, format.into())?;
             Ok(Self { manager })
         } else {
             Err(anyhow::Error::from(HardwareError::NoDefaultOutputDevice))

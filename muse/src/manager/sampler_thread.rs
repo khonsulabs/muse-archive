@@ -7,15 +7,15 @@ use crossbeam::{
 use std::sync::Arc;
 
 fn desired_threads() -> usize {
-    // TOo many threads causes high CPU usage when it's really not necessary
+    // Too many threads causes high CPU usage when it's really not necessary
     // For a machine that reports 5 cores or less, we want to use 2 threads
     // For machines in the sweet spot of 4-8 cores, we'll use half the number of CPUs
     // Any machines with more than 8 CPUs will just use 4 threads.
     // TODO Should this be configurable?
-    (num_cpus::get() / 2).min(2).max(4)
+    (num_cpus::get() / 2).max(2).min(4)
 }
 
-pub fn run(manager: ManagerHandle, sender: Sender<Sample>, format: cpal::Format) {
+pub fn run(manager: ManagerHandle, sender: Sender<Sample>, format: cpal::StreamConfig) {
     let (sample_sender, sample_receiver) = unbounded();
     let (result_sender, result_receiver) = unbounded();
 
@@ -41,7 +41,7 @@ struct SamplerThread {
     result_receiver: Receiver<Option<Sample>>,
     manager: ManagerHandle,
     sender: Sender<Sample>,
-    format: cpal::Format,
+    format: cpal::StreamConfig,
 }
 
 impl SamplerThread {
