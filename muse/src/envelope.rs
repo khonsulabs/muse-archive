@@ -90,7 +90,7 @@ impl Envelope {
             Some(value) => (EnvelopeStage::Decay, Some(value)),
             None => (
                 EnvelopeStage::Sustain,
-                self.sustain.terminal_value().or_else(|| self.last_value),
+                self.sustain.terminal_value().or(self.last_value),
             ),
         }
     }

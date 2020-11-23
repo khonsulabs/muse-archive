@@ -1,3 +1,6 @@
+// This warning doesn't apply to the usage in this project, as we're never using make_mut. https://github.com/rust-lang/rust-clippy/issues/6359
+#![allow(clippy::rc_buffer)]
+
 pub mod envelope;
 pub mod instrument;
 pub mod manager;
