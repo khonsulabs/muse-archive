@@ -1,36 +1,17 @@
 use amuse::midi::{ChannelMessage, Controller, Message};
 use muse::{
-    instrument::{serialization, InstrumentController, ToneGenerator, VirtualInstrument},
+    instrument::{serialization, VirtualInstrument},
     node::LoadedInstrument,
-    sampler::PreparedSampler,
     Note,
 };
 
 use std::{convert::TryInto, error::Error};
 
-pub struct TestInstrument {
-    basic_synth: LoadedInstrument,
-}
-
-impl ToneGenerator for TestInstrument {
-    type CustomNodes = ();
-
-    fn generate_tone(
-        &mut self,
-        note: Note,
-        control: &mut InstrumentController<Self>,
-    ) -> Result<PreparedSampler, anyhow::Error> {
-        Ok(control.instantiate(&self.basic_synth, note)?)
-    }
-}
-
 fn main() -> Result<(), Box<dyn Error>> {
-    let mut instrument = VirtualInstrument::new_with_default_output(TestInstrument {
-        basic_synth: ron::from_str::<serialization::Instrument>(include_str!(
-            "support/basic_synth.ron"
-        ))?
-        .try_into()?,
-    })?;
+    let instrument: LoadedInstrument<()> =
+        ron::from_str::<serialization::Instrument>(include_str!("support/basic_synth.ron"))?
+            .try_into()?;
+    let mut instrument = VirtualInstrument::new_with_default_output(instrument)?;
 
     let messages = amuse::midi::open_named_input("midisynth");
 

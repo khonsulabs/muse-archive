@@ -105,7 +105,7 @@ where
 }
 
 pub trait ToneGenerator: Sized {
-    type CustomNodes;
+    type CustomNodes: Instantiatable + Clone + 'static;
 
     fn generate_tone(
         &mut self,

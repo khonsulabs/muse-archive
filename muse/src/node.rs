@@ -6,6 +6,7 @@ use crate::{
     },
     note::Note,
     parameter,
+    prelude::ToneGenerator,
     sampler::{
         Add, Amplify, Multiply, Oscillator, Pan, PreparableSampler, PreparedSampler, Sawtooth,
         Sine, Square, Triangle, Unison,
@@ -13,7 +14,7 @@ use crate::{
 };
 use std::{collections::HashMap, convert::TryFrom};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct LoadedInstrument<T = ()> {
     output: Node<T>,
 }
@@ -48,6 +49,18 @@ impl<T> LoadedInstrument<T> {
                 ))
             })
             .collect::<Result<_, serialization::Error>>()
+    }
+}
+
+impl<T: Instantiatable + Clone + 'static> ToneGenerator for LoadedInstrument<T> {
+    type CustomNodes = T;
+
+    fn generate_tone(
+        &mut self,
+        note: Note,
+        control: &mut crate::prelude::InstrumentController<Self>,
+    ) -> Result<PreparedSampler, anyhow::Error> {
+        Ok(control.instantiate(self, note)?)
     }
 }
 

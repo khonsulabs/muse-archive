@@ -13,10 +13,12 @@ readme = "README.md"
 [dependencies]
 midir = "0.7"
 anyhow = "1"
-kurbo = "0.6"
+kurbo = "0.7"
 muse = { path = "../muse" }
 crossbeam = "0.8"
 once_cell = "1"
+num = "0.3"
+spin_sleep = "1"
 
 [profile.release]
 debug = true

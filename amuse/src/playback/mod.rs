@@ -10,6 +10,8 @@
 //   - Individual parts
 //     - Instrument
 //     - Notes
+pub mod choir;
+pub mod voice;
 
 pub enum Scale {
     Do,
